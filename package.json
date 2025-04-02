@@ -1,0 +1,32 @@
+{
+  "name": "tag-inspiration",
+  "version": "1.0.0",
+  "description": "灵感提供机 - 分类Tag抽签工具 (Vue版本)",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "keywords": [
+    "创意",
+    "灵感",
+    "标签",
+    "抽签",
+    "Vue"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "vue": "^3.3.4"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^4.2.3",
+    "vite": "^4.4.5"
+  },
+  "browserslist": [
+    "> 1%",
+    "last 2 versions",
+    "not dead"
+  ]
+}
