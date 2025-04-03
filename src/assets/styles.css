@@ -1,23 +1,41 @@
 /* 全局CSS变量 */
 :root {
   /* 颜色系统 */
-  --primary-color: #1677ff;
-  --primary-color-light: #e6f4ff;
-  --primary-color-dark: #0958d9;
+  --primary-color: #2196F3;
+  --primary-hover-color: #1976D2;
+  --primary-color-light: #e3f2fd;
+  --primary-color-dark: #1565C0;
   
-  --danger-color: #ff4d4f;
-  --danger-color-dark: #d9363e;
+  --secondary-color: #f1f1f1;
+  --secondary-hover-color: #e1e1e1;
   
-  --success-color: #52c41a;
-  --success-color-dark: #389e0d;
+  --action-color: #2196F3;
+  --action-hover-color: #1976D2;
   
-  --warning-color: #faad14;
-  --warning-color-dark: #d48806;
+  --danger-color: #f44336;
+  --danger-hover-color: #d32f2f;
+  --danger-color-light: #ffebee;
+  
+  --success-color: #4CAF50;
+  --success-color-dark: #388e3c;
+  --success-bg-color: #e8f5e9;
+  
+  --warning-color: #ff9800;
+  --warning-color-dark: #f57c00;
+  --warning-bg-color: #fff3e0;
+  
+  --info-color: #2196F3;
+  --info-color-dark: #1976D2;
+  --info-bg-color: #e3f2fd;
+  
+  --error-color: #f44336;
+  --error-bg-color: #ffebee;
   
   --text-color: #333333;
   --text-color-light: #666666;
   
   --border-color: #eeeeee;
+  --border-color-light: #f5f5f5;
   --border-color-dark: #dddddd;
   
   --bg-color: #ffffff;
@@ -26,48 +44,93 @@
   --bg-color-dark: #e0e0e0;
   
   --panel-bg-color: #ffffff;
-  --hover-color: #e6f7ff;
+  --input-bg-color: #ffffff;
   --disabled-color: #cccccc;
   
+  --list-bg-color: #f5f5f5;
+  --item-bg-color: #ffffff;
+  --item-hover-bg-color: #f9f9f9;
+  --item-active-bg-color: #e3f2fd;
+  
+  --tag-bg-color: #f5f5f5;
+  --card-bg-color: #fff;
+  --count-bg-color: #f1f1f1;
+  
+  --button-bg-color: #f5f5f5;
+  --button-hover-bg-color: #e5e5e5;
+  
+  --editor-bg-color: #f8f8f8;
+  --editor-text-color: #333333;
+  --preview-bg-color: #ffffff;
+  --preview-header-bg-color: #f5f5f5;
+  
+  --table-header-bg-color: #f5f5f5;
+  --row-hover-bg-color: #f9f9f9;
+  
+  --empty-bg-color: #f9f9f9;
+  --stat-bg-color: #f5f5f5;
+  
   /* 深色模式颜色 */
-  --text-color-dark: #e0e0e0;
+  --text-color-dark: #111111;
   --text-color-light-dark: #999999;
   
-  --bg-color-dark-mode: #141414;
-  --panel-bg-color-dark: #1f1f1f;
-  --bg-color-light-dark: #2c2c2c;
+  --bg-color-dark-mode: #1f1f1f;
+  --panel-bg-color-dark: #2c2c2c;
+  --bg-color-light-dark: #333333;
   --bg-color-lighter-dark: #252525;
   --bg-color-dark-dark: #3c3c3c;
   
   --border-color-dark-mode: #333333;
-  --hover-color-dark: #165996;
+  --hover-color-dark: #388e3c;
   
-  --primary-color-light-dark: #177ddc;
+  --list-bg-color-dark: #2c2c2c;
+  --item-bg-color-dark: #333333;
+  --item-hover-bg-color-dark: #3c3c3c;
+  --item-active-bg-color-dark: #0d47a1;
+  
+  --tag-bg-color-dark: #333333;
+  --card-bg-color-dark: #2c2c2c;
+  --count-bg-color-dark: #444444;
+  
+  --button-bg-color-dark: #333333;
+  --button-hover-bg-color-dark: #444444;
+  
+  --editor-bg-color-dark: #252525;
+  --editor-text-color-dark: #e0e0e0;
+  --preview-bg-color-dark: #2c2c2c;
+  --preview-header-bg-color-dark: #333333;
+  
+  --table-header-bg-color-dark: #333333;
+  --row-hover-bg-color-dark: #3c3c3c;
+  
+  --empty-bg-color-dark: #252525;
+  --stat-bg-color-dark: #333333;
   
   /* 大小和间距 */
-  --padding-small: 8px;
-  --padding-medium: 16px;
-  --padding-large: 24px;
+  --spacing-xs: 5px;
+  --spacing-sm: 8px;
+  --spacing-md: 15px;
+  --spacing-lg: 20px;
+  --spacing-xl: 25px;
   
-  --border-radius-small: 4px;
-  --border-radius-medium: 8px;
-  --border-radius-large: 12px;
+  --border-radius-sm: 4px;
+  --border-radius-md: 6px;
+  --border-radius-lg: 8px;
+  --border-radius-xl: 10px;
   
   /* 字体大小 */
-  --base-font-size: 14px;
-  --font-size-small: 0.85rem;
-  --font-size-default: 1rem;
-  --font-size-medium: 1.2rem;
-  --font-size-large: 1.5rem;
-  
-  /* 间距变量 */
-  --spacing-base: 16px;
-  --card-padding: 16px;
+  --font-size-base: 14px;
+  --font-size-xs: 0.85rem;
+  --font-size-sm: 0.95rem;
+  --font-size-md: 1rem;
+  --font-size-lg: 1.2rem;
+  --font-size-xl: 1.5rem;
   
   /* 阴影 */
-  --shadow-small: 0 2px 8px rgba(0, 0, 0, 0.1);
-  --shadow-medium: 0 4px 12px rgba(0, 0, 0, 0.15);
-  --shadow-large: 0 8px 24px rgba(0, 0, 0, 0.2);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 1px 3px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 2px 8px rgba(0, 0, 0, 0.1);
+  --shadow-xl: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 /* 深色模式适配 */
@@ -76,21 +139,48 @@
   --text-color: var(--text-color-dark);
   --text-color-light: var(--text-color-light-dark);
   
-  --border-color: var(--border-color-dark-mode);
-  --border-color-dark: #444444;
+  /* 为深色模式覆盖text-color-dark为白色 */
+  --text-color-dark: #ffffff;
   
-  --bg-color: #1f1f1f;
+  --bg-color: var(--bg-color-dark-mode);
   --bg-color-light: var(--bg-color-light-dark);
   --bg-color-lighter: var(--bg-color-lighter-dark);
   --bg-color-dark: var(--bg-color-dark-dark);
   
   --panel-bg-color: var(--panel-bg-color-dark);
-  --hover-color: var(--hover-color-dark);
+  --input-bg-color: var(--bg-color-lighter-dark);
+  
+  --border-color: var(--border-color-dark-mode);
+  --border-color-light: var(--bg-color-light-dark);
+  
+  --list-bg-color: var(--list-bg-color-dark);
+  --item-bg-color: var(--item-bg-color-dark);
+  --item-hover-bg-color: var(--item-hover-bg-color-dark);
+  --item-active-bg-color: var(--item-active-bg-color-dark);
+  
+  --tag-bg-color: var(--tag-bg-color-dark);
+  --card-bg-color: var(--card-bg-color-dark);
+  --count-bg-color: var(--count-bg-color-dark);
+  
+  --button-bg-color: var(--button-bg-color-dark);
+  --button-hover-bg-color: var(--button-hover-bg-color-dark);
+  
+  --editor-bg-color: var(--editor-bg-color-dark);
+  --editor-text-color: var(--editor-text-color-dark);
+  --preview-bg-color: var(--preview-bg-color-dark);
+  --preview-header-bg-color: var(--preview-header-bg-color-dark);
+  
+  --table-header-bg-color: var(--table-header-bg-color-dark);
+  --row-hover-bg-color: var(--row-hover-bg-color-dark);
+  
+  --empty-bg-color: var(--empty-bg-color-dark);
+  --stat-bg-color: var(--stat-bg-color-dark);
   
   /* 阴影 */
-  --shadow-small: 0 2px 8px rgba(0, 0, 0, 0.3);
-  --shadow-medium: 0 4px 12px rgba(0, 0, 0, 0.4);
-  --shadow-large: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 2px 8px rgba(0, 0, 0, 0.4);
+  --shadow-xl: 0 4px 12px rgba(0, 0, 0, 0.5);
 }
 
 /* 全局样式 */
@@ -103,7 +193,7 @@ html, body {
     Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  font-size: var(--base-font-size, 14px);
+  font-size: var(--font-size-base);
   color: var(--text-color);
   background-color: var(--bg-color);
 }
@@ -161,7 +251,7 @@ input, select, textarea {
 
 /* 链接样式 */
 a {
-  color: var(--primary-color);
+  color: var(--primary-color, #2196F3);
   text-decoration: none;
 }
 
@@ -245,7 +335,7 @@ header {
 
 header h1 {
     font-size: 2.5rem;
-    color: #2c3e50;
+    color: var(--text-color-dark, #333);
     margin-bottom: 10px;
 }
 
@@ -271,7 +361,7 @@ main {
 }
 
 .panel h2 {
-    color: #2c3e50;
+    color: var(--text-color-dark, #333);
     margin-bottom: 15px;
     padding-bottom: 10px;
     border-bottom: 1px solid #eaeaea;
@@ -317,22 +407,22 @@ button:hover {
 }
 
 .primary-btn {
-    background-color: #3498db;
+    background-color: var(--primary-color, #2196F3);
     color: white;
 }
 
 .primary-btn:hover {
-    background-color: #2980b9;
+    background-color: var(--primary-hover-color, #1976D2);
 }
 
 .secondary-btn {
-    background-color: #e74c3c;
+    background-color: var(--danger-color, #f44336);
     color: white;
     margin-left: 10px;
 }
 
 .secondary-btn:hover {
-    background-color: #c0392b;
+    background-color: var(--danger-hover-color, #d32f2f);
 }
 
 /* 结果面板 */
@@ -367,8 +457,8 @@ button:hover {
 }
 
 .tag-item {
-    background-color: #f1f8ff;
-    border-left: 4px solid #3498db;
+    background-color: var(--primary-color-light, #e3f2fd);
+    border-left: 4px solid var(--primary-color, #2196F3);
     padding: 15px;
     margin-bottom: 10px;
     border-radius: 4px;
@@ -388,7 +478,7 @@ button:hover {
 .tag-content {
     font-size: 1.2rem;
     font-weight: bold;
-    color: #2c3e50;
+    color: var(--text-color-dark, #333);
 }
 
 .tag-subtitle {
@@ -440,8 +530,8 @@ button:hover {
 
 .tab-btn.active {
     background-color: #fff;
-    border-bottom: 2px solid #3498db;
-    color: #3498db;
+    border-bottom: 2px solid var(--primary-color, #2196F3);
+    color: var(--primary-color, #2196F3);
 }
 
 .tab-content {
@@ -516,7 +606,7 @@ button:hover {
 }
 
 .library-item:hover {
-    background-color: #f1f8ff;
+    background-color: var(--primary-color-light, #e3f2fd);
 }
 
 .library-item.active {
@@ -562,13 +652,13 @@ button:hover {
 
 .preview-tag-item {
     display: inline-block;
-    background-color: #f1f8ff;
+    background-color: var(--primary-color-light, #e3f2fd);
     border-radius: 4px;
-    border-left: 3px solid #0366d6;
+    border-left: 3px solid var(--primary-color, #2196F3);
     padding: 8px 12px;
     margin: 8px 5px;
     font-size: 0.9rem;
-    color: #0366d6;
+    color: var(--primary-color, #2196F3);
     transition: transform 0.2s, box-shadow 0.2s;
 }
 
@@ -585,7 +675,7 @@ button:hover {
 
 .preview-tag-text {
     font-weight: bold;
-    color: #2c3e50;
+    color: var(--text-color-dark, #333);
     margin-bottom: 4px;
 }
 
@@ -619,7 +709,7 @@ button:hover {
 
 .category-name {
     font-weight: bold;
-    color: #2c3e50;
+    color: var(--text-color-dark, #333);
 }
 
 .tag-list {
@@ -675,7 +765,7 @@ footer {
 /* 高级设置 */
 .advanced-settings summary {
     cursor: pointer;
-    color: #3498db;
+    color: var(--primary-color, #2196F3);
     margin-bottom: 15px;
     font-size: 0.95rem;
     font-weight: bold;
@@ -684,7 +774,7 @@ footer {
 }
 
 .advanced-settings summary:hover {
-    color: #2980b9;
+    color: var(--primary-hover-color, #1976D2);
 }
 
 .advanced-settings details {
@@ -741,8 +831,8 @@ footer {
 
 .advanced-settings .setting-item input[type="text"]:focus,
 .advanced-settings .setting-item select:focus {
-    border-color: #3498db;
-    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+    border-color: var(--primary-color, #2196F3);
+    box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.2);
     outline: none;
 }
 
@@ -869,7 +959,7 @@ footer {
 }
 
 .close-btn:hover {
-    color: #e74c3c;
+    color: var(--danger-color, #f44336);
     transform: none;
 }
 
@@ -899,12 +989,12 @@ footer {
 }
 
 .history-tag {
-    background-color: #f1f8ff;
-    border: 1px solid #c8e1ff;
+    background-color: var(--primary-color-light, #e3f2fd);
+    border: 1px solid var(--primary-color-light, #e3f2fd);
     border-radius: 4px;
     padding: 5px 10px;
     font-size: 0.9rem;
-    color: #0366d6;
+    color: var(--primary-color, #2196F3);
 }
 
 /* 美化UI */
@@ -932,7 +1022,7 @@ header {
 
 header h1 {
     font-size: 2.5rem;
-    color: #2c3e50;
+    color: var(--text-color-dark, #333);
     margin-bottom: 10px;
     text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
 }
@@ -952,7 +1042,7 @@ header h1 {
 }
 
 .panel h2 {
-    color: #2c3e50;
+    color: var(--text-color-dark, #333);
     margin-bottom: 15px;
     padding-bottom: 10px;
     border-bottom: 1px solid #eaeaea;
@@ -1037,4 +1127,41 @@ header h1 {
 .compact-layout h2,
 .compact-layout h3 {
   margin-bottom: calc(var(--spacing-base, 8px) / 2);
+}
+
+/* 替换所有#2c3e50的实例 */
+.text-heading {
+  color: var(--text-color-dark, #333);
+}
+
+.sidebar-title {
+  color: var(--text-color-dark, #333);
+}
+
+.content-header {
+  color: var(--text-color-dark, #333);
+}
+
+.menu-item {
+  color: var(--text-color-dark, #333);
+}
+
+.sub-title {
+  color: var(--text-color-dark, #333);
+}
+
+.card-title {
+  color: var(--text-color-dark, #333);
+}
+
+.app-title {
+  color: var(--text-color-dark, #333);
+}
+
+.section-title {
+  color: var(--text-color-dark, #333);
+}
+
+.panel-header {
+  color: var(--text-color-dark, #333);
 }

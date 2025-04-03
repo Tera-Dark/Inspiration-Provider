@@ -44,7 +44,7 @@ header {
 
 header h1 {
   font-size: 2.5rem;
-  color: #2c3e50;
+  color: var(--text-color-dark, #333);
   margin-bottom: 10px;
 }
 
@@ -68,11 +68,16 @@ footer {
 }
 
 .github-link a {
-  color: #3498db;
+  color: var(--primary-color, #2196F3);
   text-decoration: none;
 }
 
 .github-link a:hover {
   text-decoration: underline;
+}
+
+.main-heading {
+  font-weight: 600;
+  color: var(--text-color-dark, #333);
 }
 </style> 

@@ -1,5 +1,5 @@
 <template>
-  <div class="notification-container">
+  <div class="notification-container" v-if="showNotifications">
     <transition-group name="notification">
       <div 
         v-for="notification in notifications" 
@@ -24,19 +24,23 @@
 </template>
 
 <script>
-import { defineComponent, ref, inject, onBeforeUnmount } from 'vue';
+import { defineComponent, ref, inject, onBeforeUnmount, onMounted, watch } from 'vue';
 
 export default defineComponent({
   name: 'NotificationSystem',
   setup() {
     const emitter = inject('emitter');
     const notifications = ref([]);
+    const showNotifications = ref(true); // 默认显示通知
     let nextId = 1;
     
     // 添加通知
     const addNotification = (notification) => {
+      // 如果通知功能被禁用，直接返回
+      if (!showNotifications.value) return;
+      
       const id = nextId++;
-      const duration = notification.duration || 3000; // 默认显示3秒
+      const duration = notification.duration || 2000; // 默认显示2秒
       
       // 创建通知对象
       const newNotification = {
@@ -63,18 +67,84 @@ export default defineComponent({
       }
     };
     
+    // 初始化通知设置
+    const initNotificationSettings = () => {
+      const savedSettings = localStorage.getItem('theme_settings');
+      if (savedSettings) {
+        try {
+          const settings = JSON.parse(savedSettings);
+          showNotifications.value = settings.showNotifications !== false;
+        } catch (error) {
+          console.error('加载通知设置失败:', error);
+        }
+      }
+    };
+    
+    // 监听通知设置变更事件
+    const unsubscribeSettings = emitter.on('notificationsSettingChanged', (enabled) => {
+      showNotifications.value = enabled;
+      
+      // 如果禁用通知，清空当前所有通知
+      if (!enabled) {
+        notifications.value = [];
+      }
+    });
+    
     // 监听通知事件
-    const unsubscribe = emitter.on('notification', (notification) => {
+    const unsubscribeNotification = emitter.on('notification', (notification) => {
       addNotification(notification);
+    });
+    
+    onMounted(() => {
+      initNotificationSettings();
     });
     
     // 组件销毁时取消订阅
     onBeforeUnmount(() => {
-      unsubscribe();
+      unsubscribeNotification();
+      unsubscribeSettings();
     });
+    
+    // 优化通知系统组件的显示和消失逻辑
+    watch(notifications, (newValue) => {
+      // 限制同时显示的通知数量，避免堆积
+      if (newValue.length > 5) {
+        // 删除最早的通知，保留最新的5条
+        const toRemove = newValue.length - 5;
+        notifications.value = newValue.slice(toRemove);
+      }
+    }, { deep: true });
+    
+    // 优化显示通知的方法
+    const showNotification = (notification) => {
+      // 去重：如果有相同内容的通知，先移除它
+      const existingIndex = notifications.value.findIndex(n => 
+        n.message === notification.message && n.type === notification.type
+      );
+      
+      if (existingIndex !== -1) {
+        clearTimeout(notifications.value[existingIndex].timeoutId);
+        notifications.value.splice(existingIndex, 1);
+      }
+      
+      // 添加唯一ID和超时标识
+      const id = Date.now() + Math.random().toString(36).substr(2, 5);
+      const timeoutId = setTimeout(() => {
+        removeNotification(id);
+      }, notification.duration || 3000);
+      
+      // 添加新通知
+      notifications.value.push({
+        ...notification,
+        id,
+        timeoutId,
+        duration: notification.duration || 3000
+      });
+    };
     
     return {
       notifications,
+      showNotifications,
       removeNotification
     };
   }

@@ -33,31 +33,8 @@
         <!-- 抽签工具页面 -->
         <div v-show="activeTabIndex === 0" class="page-content">
           <div class="draw-tool-container">
-            <!-- 左侧抽签设置 -->
-            <div class="draw-settings-panel">
-              <tag-drawer-panel @draw-completed="handleDrawCompleted" />
-            </div>
-            
-            <!-- 右侧抽签结果 -->
-            <div class="draw-results-panel">
-              <h3 class="panel-title">抽签结果</h3>
-              <div v-if="drawnTags.length === 0" class="empty-result">
-                点击"抽签"按钮开始
-              </div>
-              <div v-else class="results-list">
-                <div 
-                  v-for="(tag, index) in drawnTags" 
-                  :key="index"
-                  class="result-item"
-                >
-                  <div class="result-category">{{ tag.category }}</div>
-                  <div class="result-content">{{ tag.content }}</div>
-                  <div v-if="tag.subTitles && tag.subTitles.length > 0" class="result-subtitle">
-                    {{ tag.subTitles.join(' / ') }}
-                  </div>
-                </div>
-              </div>
-            </div>
+            <!-- 抽签面板 -->
+            <drawer-panel />
           </div>
           
           <!-- 历史记录区域 -->
@@ -94,18 +71,18 @@
 </template>
 
 <script>
-import { defineComponent, ref, inject, onMounted, onBeforeUnmount, computed } from 'vue';
-import TagDrawerPanel from '@/components/panels/TagDrawerPanel.vue';
-import HistoryPanel from '@/components/panels/HistoryPanel.vue';
-import SettingsPanel from '@/components/panels/SettingsPanel.vue';
-import InfoPanel from '@/components/panels/InfoPanel.vue';
-import TagLibraryPanel from '@/components/panels/TagLibraryPanel.vue';
-import NotificationSystem from '@/components/common/NotificationSystem.vue';
+import { defineComponent, ref, inject, onMounted, computed } from 'vue';
+import DrawerPanel from '@/components/drawer/DrawerPanel.vue';
+import HistoryPanel from '@/components/history/HistoryPanel.vue';
+import SettingsPanel from '@/components/settings/SettingsPanel.vue';
+import InfoPanel from '@/components/about/InfoPanel.vue';
+import TagLibraryPanel from '@/components/tag-library/TagLibraryPanel.vue';
+import NotificationSystem from '@/components/common/Notification/NotificationSystem.vue';
 
 export default defineComponent({
   name: 'HomeView',
   components: {
-    TagDrawerPanel,
+    DrawerPanel,
     HistoryPanel,
     SettingsPanel,
     InfoPanel,
@@ -116,7 +93,6 @@ export default defineComponent({
     const emitter = inject('emitter');
     
     // 状态管理
-    const drawnTags = ref([]);
     const activeTabIndex = ref(0);
     const isDarkMode = ref(localStorage.getItem('darkMode') === 'true');
     
@@ -128,11 +104,6 @@ export default defineComponent({
       { name: '关于' }
     ];
     
-    // 处理抽签完成事件
-    const handleDrawCompleted = (tags) => {
-      drawnTags.value = tags;
-    };
-    
     // 主题切换
     const toggleDarkMode = () => {
       isDarkMode.value = !isDarkMode.value;
@@ -140,41 +111,35 @@ export default defineComponent({
       emitter.emit('settings-changed', { darkMode: isDarkMode.value });
     };
     
-    // 事件监听
-    // 监听标签抽取事件
-    const unsubscribeTags = emitter.on('tags-drawn', (tags) => {
-      drawnTags.value = tags;
-    });
-    
-    // 监听重置事件
-    const unsubscribeReset = emitter.on('tags-reset', () => {
-      drawnTags.value = [];
-    });
-    
-    // 监听历史记录重用
-    const unsubscribeHistory = emitter.on('reuse-history', (historyItem) => {
-      drawnTags.value = historyItem.tags;
-    });
+    // 事件监听器
+    let unsubscribeSettingsChanged;
     
     // 监听设置变更
-    const unsubscribeSettings = emitter.on('settings-changed', (settings) => {
-      isDarkMode.value = settings.darkMode;
-    });
-    
-    // 组件销毁时取消订阅
-    onBeforeUnmount(() => {
-      unsubscribeTags();
-      unsubscribeReset();
-      unsubscribeHistory();
-      unsubscribeSettings();
+    onMounted(() => {
+      // 设置初始模式
+      if (isDarkMode.value) {
+        document.body.classList.add('dark-mode');
+      } else {
+        document.body.classList.remove('dark-mode');
+      }
+      
+      // 监听设置变更
+      unsubscribeSettingsChanged = emitter.on('settings-changed', (settings) => {
+        if (settings.darkMode !== undefined) {
+          isDarkMode.value = settings.darkMode;
+          if (settings.darkMode) {
+            document.body.classList.add('dark-mode');
+          } else {
+            document.body.classList.remove('dark-mode');
+          }
+        }
+      });
     });
     
     return {
-      drawnTags,
       activeTabIndex,
-      tabs,
       isDarkMode,
-      handleDrawCompleted,
+      tabs,
       toggleDarkMode
     };
   }
@@ -336,12 +301,10 @@ export default defineComponent({
   overflow-y: auto;
 }
 
-/* 抽签工具布局 */
+/* 抽签工具页面样式 */
 .draw-tool-container {
-  display: flex;
-  gap: 20px;
-  margin-bottom: 20px;
   height: 65%;
+  margin-bottom: 1.5rem;
 }
 
 .draw-settings-panel {
@@ -360,33 +323,94 @@ export default defineComponent({
   overflow-y: auto;
 }
 
-.panel-title {
-  font-size: 1.2rem;
-  color: var(--text-color, #333);
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 16px;
   padding-bottom: 10px;
   border-bottom: 1px solid var(--border-color, #eee);
+}
+
+.panel-title {
+  font-size: 1.2rem;
+  color: var(--text-color, #333);
+  margin-bottom: 0;
+}
+
+.copy-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.copy-button {
+  background-color: var(--bg-color-light, #f0f0f0);
+  color: var(--text-color, #333);
+  border: none;
+  border-radius: 4px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.copy-button:hover {
+  background-color: var(--primary-color-light, #e6f4ff);
+  color: var(--primary-color, #1677ff);
+}
+
+.copy-button .button-icon {
+  font-size: 1.1rem;
 }
 
 /* 历史记录区域 */
 .history-section {
   height: 30%;
   background-color: var(--panel-bg-color, #fff);
-  border-radius: var(--border-radius-medium, 8px);
-  box-shadow: var(--shadow-small, 0 2px 8px rgba(0, 0, 0, 0.1));
+  border-radius: var(--border-radius-medium, 12px);
+  box-shadow: var(--shadow-medium, 0 4px 16px rgba(0, 0, 0, 0.08));
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  border-top: 3px solid var(--accent-color, #42b883);
 }
 
 .section-header {
-  padding: 16px 20px 0;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--border-color-light, rgba(0, 0, 0, 0.07));
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.panel-title {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--text-color, #333);
+  position: relative;
+  padding-left: 0.5rem;
+}
+
+.panel-title::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 1.2em;
+  background-color: var(--accent-color, #42b883);
+  border-radius: 2px;
 }
 
 .history-content {
   flex: 1;
   overflow-y: auto;
-  padding: 0 20px 20px;
+  padding: 0;
 }
 
 /* 抽签结果样式 */
@@ -417,6 +441,18 @@ export default defineComponent({
   background-color: var(--panel-bg-color, #fff);
   transition: transform 0.2s, box-shadow 0.2s;
   border-left: 3px solid var(--primary-color, #1677ff);
+  animation: tag-fade-in 0.6s ease-out both;
+}
+
+@keyframes tag-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .result-item:hover {
@@ -530,6 +566,17 @@ export default defineComponent({
   color: var(--text-color-light-dark, #999);
 }
 
+.dark-mode .copy-button {
+  background-color: var(--bg-color-light-dark, #2c2c2c);
+  color: var(--text-color-dark, #e0e0e0);
+}
+
+.dark-mode .copy-button:hover {
+  background-color: var(--primary-color-light-dark, #177ddc);
+  color: var(--text-color-dark, #fff);
+}
+
+/* 响应式调整 */
 @media (max-width: 768px) {
   .left-menu {
     width: 60px;
@@ -558,6 +605,22 @@ export default defineComponent({
   .tab {
     padding: 8px 12px;
     font-size: 0.9rem;
+  }
+  
+  .draw-tool-container {
+    height: 65%;
+  }
+  
+  .history-section {
+    height: 30%;
+  }
+  
+  .section-header {
+    padding: 0.75rem 1rem;
+  }
+  
+  .panel-title {
+    font-size: 1.1rem;
   }
 }
 </style> 

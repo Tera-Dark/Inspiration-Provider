@@ -52,28 +52,65 @@ class TagLibrary {
    * @private
    */
   _loadFromStorage() {
-    const savedLibraries = localStorage.getItem(CONFIG.STORAGE_KEYS.TAG_LIBRARIES);
-    const savedLibraryName = localStorage.getItem(CONFIG.STORAGE_KEYS.CURRENT_LIBRARY_NAME);
-    const savedHistory = localStorage.getItem(CONFIG.STORAGE_KEYS.HISTORY);
-    
-    if (savedLibraries) {
-      try {
-        this.libraries = JSON.parse(savedLibraries);
-      } catch (e) {
-        console.error('解析标签库数据失败', e);
+    // 使用try-catch包裹整个方法，提高错误处理的健壮性
+    try {
+      const savedLibraries = localStorage.getItem(CONFIG.STORAGE_KEYS.TAG_LIBRARIES);
+      const savedLibraryName = localStorage.getItem(CONFIG.STORAGE_KEYS.CURRENT_LIBRARY_NAME);
+      const savedHistory = localStorage.getItem(CONFIG.STORAGE_KEYS.HISTORY);
+      
+      // 只有当数据存在时才进行解析，避免无谓的计算
+      if (savedLibraries) {
+        try {
+          const parsedLibraries = JSON.parse(savedLibraries);
+          // 验证解析出的数据是否为对象
+          if (parsedLibraries && typeof parsedLibraries === 'object') {
+            this.libraries = parsedLibraries;
+          } else {
+            console.error('解析标签库数据失败: 非有效对象');
+            // 如果解析出的不是有效对象，保持现有库不变而不是重置
+            if (Object.keys(this.libraries).length === 0) {
+              this.libraries = {};
+            }
+          }
+        } catch (e) {
+          console.error('解析标签库数据失败', e);
+          // 解析失败时保持现有库不变
+          if (Object.keys(this.libraries).length === 0) {
+            this.libraries = {};
+          }
+        }
+      }
+      
+      // 验证当前库名称
+      if (savedLibraryName && this.libraries[savedLibraryName]) {
+        this.currentLibraryName = savedLibraryName;
+      } else if (Object.keys(this.libraries).length > 0 && !this.libraries[this.currentLibraryName]) {
+        // 如果当前库名称无效但有其他库，设置为第一个可用库
+        this.currentLibraryName = Object.keys(this.libraries)[0];
+      }
+      
+      // 加载历史记录
+      if (savedHistory) {
+        try {
+          const parsedHistory = JSON.parse(savedHistory);
+          if (Array.isArray(parsedHistory)) {
+            this.drawnHistory = parsedHistory;
+          } else {
+            console.error('解析历史记录失败: 非数组格式');
+            this.drawnHistory = [];
+          }
+        } catch (e) {
+          console.error('解析历史记录失败', e);
+          this.drawnHistory = [];
+        }
+      }
+    } catch (error) {
+      console.error('从本地存储加载数据时发生错误:', error);
+      // 发生致命错误时确保应用仍能运行
+      if (Object.keys(this.libraries).length === 0) {
         this.libraries = {};
       }
-    }
-    
-    if (savedLibraryName && this.libraries[savedLibraryName]) {
-      this.currentLibraryName = savedLibraryName;
-    }
-    
-    if (savedHistory) {
-      try {
-        this.drawnHistory = JSON.parse(savedHistory);
-      } catch (e) {
-        console.error('解析历史记录失败', e);
+      if (!this.drawnHistory) {
         this.drawnHistory = [];
       }
     }
@@ -130,9 +167,14 @@ class TagLibrary {
   /**
    * 获取指定名称的库
    * @param {string} libraryName - 库名称
+   * @param {boolean} forceReload - 是否强制重新加载数据（忽略缓存）
    * @returns {Object} 库对象
    */
-  getLibrary(libraryName) {
+  getLibrary(libraryName, forceReload = false) {
+    if (forceReload) {
+      // 强制重新加载数据
+      this._loadFromStorage();
+    }
     return this.libraries[libraryName] || {};
   }
 
@@ -149,6 +191,22 @@ class TagLibrary {
       return true;
     }
     return false;
+  }
+
+  /**
+   * 设置库数据（更新或添加）
+   * @param {string} libraryName - 库名称
+   * @param {Object} libraryData - 库数据
+   * @returns {boolean} 是否设置成功
+   */
+  setLibrary(libraryName, libraryData) {
+    if (!libraryName || !libraryData || typeof libraryData !== 'object') {
+      return false;
+    }
+    
+    this.libraries[libraryName] = libraryData;
+    this._saveToStorage();
+    return true;
   }
 
   /**
@@ -217,21 +275,33 @@ class TagLibrary {
   /**
    * 添加到历史记录
    * @param {Array} tags - 抽取的标签
+   * @param {Object} options - 抽取选项
    */
-  addToHistory(tags) {
+  addToHistory(tags, options = {}) {
     if (Array.isArray(tags) && tags.length > 0) {
-      this.drawnHistory.unshift({
+      // 添加唯一ID
+      const historyItem = {
+        id: `hist_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
         timestamp: Date.now(),
         tags: tags,
-        libraryName: this.currentLibraryName
-      });
+        libraryName: this.currentLibraryName,
+        options: options
+      };
       
-      // 最多保存20条历史记录
-      if (this.drawnHistory.length > 20) {
-        this.drawnHistory = this.drawnHistory.slice(0, 20);
+      this.drawnHistory.unshift(historyItem);
+      
+      // 限制历史记录数量，根据设置的最大值
+      const maxHistorySize = options.maxHistoryCount || 20;
+      if (this.drawnHistory.length > maxHistorySize) {
+        this.drawnHistory = this.drawnHistory.slice(0, maxHistorySize);
       }
       
       this._saveToStorage();
+      
+      // 添加通知 - 发送信号表明历史记录已更新
+      if (typeof window !== 'undefined' && window.dispatchEvent) {
+        window.dispatchEvent(new CustomEvent('history-updated'));
+      }
     }
   }
 
@@ -255,11 +325,44 @@ class TagLibrary {
   }
 
   /**
+   * 删除单个历史记录
+   * @param {string} id - 历史记录项的ID
+   * @returns {boolean} 是否成功删除
+   */
+  removeHistoryItem(id) {
+    if (!id) {
+      throw new Error('历史记录ID不能为空');
+    }
+    
+    const initialLength = this.drawnHistory.length;
+    this.drawnHistory = this.drawnHistory.filter(item => item.id !== id);
+    
+    // 检查是否删除了项目
+    if (this.drawnHistory.length < initialLength) {
+      this._saveToStorage();
+      
+      // 发送更新通知
+      if (typeof window !== 'undefined' && window.dispatchEvent) {
+        window.dispatchEvent(new CustomEvent('history-updated'));
+      }
+      
+      return true;
+    }
+    
+    return false;
+  }
+
+  /**
    * 清空历史记录
    */
   clearHistory() {
     this.drawnHistory = [];
     this._saveToStorage();
+    
+    // 发送更新通知
+    if (typeof window !== 'undefined' && window.dispatchEvent) {
+      window.dispatchEvent(new CustomEvent('history-updated'));
+    }
   }
 
   /**
@@ -711,6 +814,141 @@ class TagLibrary {
     }
     
     return false;
+  }
+
+  /**
+   * 添加新分类
+   * @param {string} libraryName - 库名称
+   * @param {string} categoryName - 分类名称
+   * @returns {boolean} 是否添加成功
+   */
+  addCategory(libraryName, categoryName) {
+    if (!libraryName || !categoryName) {
+      throw new Error('库名称和分类名称不能为空');
+    }
+    
+    if (!this.libraries[libraryName]) {
+      throw new Error(`库 "${libraryName}" 不存在`);
+    }
+    
+    // 检查分类是否已存在
+    if (this.libraries[libraryName][categoryName] && Array.isArray(this.libraries[libraryName][categoryName])) {
+      throw new Error(`分类 "${categoryName}" 已存在`);
+    }
+    
+    // 添加新分类
+    this.libraries[libraryName][categoryName] = [];
+    
+    // 保存更改
+    this._saveToStorage();
+    return true;
+  }
+  
+  /**
+   * 重命名分类
+   * @param {string} libraryName - 库名称
+   * @param {string} oldCategoryName - 原分类名称
+   * @param {string} newCategoryName - 新分类名称
+   * @returns {boolean} 是否重命名成功
+   */
+  renameCategory(libraryName, oldCategoryName, newCategoryName) {
+    if (!libraryName || !oldCategoryName || !newCategoryName) {
+      throw new Error('库名称、原分类名称和新分类名称不能为空');
+    }
+    
+    if (!this.libraries[libraryName]) {
+      throw new Error(`库 "${libraryName}" 不存在`);
+    }
+    
+    // 检查原分类是否存在
+    if (!this.libraries[libraryName][oldCategoryName] || !Array.isArray(this.libraries[libraryName][oldCategoryName])) {
+      throw new Error(`分类 "${oldCategoryName}" 不存在或不是有效的标签数组`);
+    }
+    
+    // 检查新分类名称是否已存在
+    if (this.libraries[libraryName][newCategoryName] && Array.isArray(this.libraries[libraryName][newCategoryName])) {
+      throw new Error(`分类 "${newCategoryName}" 已存在`);
+    }
+    
+    // 重命名分类
+    this.libraries[libraryName][newCategoryName] = this.libraries[libraryName][oldCategoryName];
+    delete this.libraries[libraryName][oldCategoryName];
+    
+    // 保存更改
+    this._saveToStorage();
+    return true;
+  }
+  
+  /**
+   * 删除分类
+   * @param {string} libraryName - 库名称
+   * @param {string} categoryName - 分类名称
+   * @returns {boolean} 是否删除成功
+   */
+  deleteCategory(libraryName, categoryName) {
+    if (!libraryName || !categoryName) {
+      throw new Error('库名称和分类名称不能为空');
+    }
+    
+    if (!this.libraries[libraryName]) {
+      throw new Error(`库 "${libraryName}" 不存在`);
+    }
+    
+    // 检查分类是否存在
+    if (!this.libraries[libraryName][categoryName]) {
+      throw new Error(`分类 "${categoryName}" 不存在`);
+    }
+    
+    // 删除分类
+    delete this.libraries[libraryName][categoryName];
+    
+    // 保存更改
+    this._saveToStorage();
+    return true;
+  }
+
+  /**
+   * 清除特定库的缓存
+   * @param {string} libraryName - 库名称
+   */
+  clearCache(libraryName) {
+    // 从本地存储重新加载数据
+    const savedLibraries = localStorage.getItem(CONFIG.STORAGE_KEYS.TAG_LIBRARIES);
+    
+    if (savedLibraries) {
+      try {
+        const allLibraries = JSON.parse(savedLibraries);
+        // 更新特定库的数据
+        if (libraryName && allLibraries[libraryName]) {
+          this.libraries[libraryName] = allLibraries[libraryName];
+          return true;
+        }
+      } catch (e) {
+        console.error('解析标签库数据失败', e);
+      }
+    }
+    
+    return false;
+  }
+
+  /**
+   * 直接设置所有库数据
+   * @param {Object} libraries - 包含所有库的对象
+   * @param {boolean} saveToStorage - 是否保存到本地存储，默认为 true
+   * @returns {boolean} 是否设置成功
+   */
+  setLibraries(libraries, saveToStorage = true) {
+    if (!libraries || typeof libraries !== 'object') {
+      return false;
+    }
+    
+    this.libraries = libraries;
+    
+    if (saveToStorage) {
+      this._saveToStorage();
+    }
+    
+    return true;
   }
 }
 

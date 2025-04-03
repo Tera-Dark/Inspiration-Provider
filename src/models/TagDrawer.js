@@ -62,7 +62,7 @@ class TagDrawer {
   /**
    * 抽取标签
    * @param {number} count - 抽取数量
-   * @param {string} category - 分类名称
+   * @param {string|Array} category - 分类名称或分类数组
    * @param {Array} excludeTags - 排除的标签
    * @param {boolean} noRepeat - 是否避免重复抽取
    * @param {Object} options - 高级选项
@@ -76,82 +76,18 @@ class TagDrawer {
     if (category === 'all') {
       // 从所有分类中抽取
       for (const cat in currentLibrary) {
-        currentLibrary[cat].forEach(tagItem => {
-          // 获取标签内容（兼容新旧格式）
-          let tagContent, tagSubTitles, tagCategory;
-          
-          if (typeof tagItem === 'object') {
-            if (tagItem.content) {
-              // 新格式
-              tagContent = tagItem.content;
-              tagSubTitles = tagItem.subTitles || [];
-              tagCategory = tagItem.category || cat;
-            } else if (tagItem.text) {
-              // 旧格式
-              tagContent = tagItem.text;
-              tagSubTitles = tagItem.subTitle ? tagItem.subTitle.split(',') : [];
-              tagCategory = cat;
-            }
-          } else {
-            tagContent = tagItem;
-            tagSubTitles = [];
-            tagCategory = cat;
-          }
-          
-          // 检查是否在排除列表中
-          const isExcluded = excludeTags.some(excludeTag => 
-            tagContent.toLowerCase().includes(excludeTag.toLowerCase()));
-          
-          // 检查是否已经抽取过（如果启用了不重复抽取）
-          const isAlreadyDrawn = noRepeat && 
-            this.tagLibrary.isTagInHistory(tagCategory, tagContent);
-          
-          if (!isExcluded && !isAlreadyDrawn) {
-            tagPool.push({
-              category: tagCategory,
-              tagContent: tagContent,
-              tagSubTitles: tagSubTitles
-            });
-          }
-        });
+        this._addTagsToPool(currentLibrary, cat, tagPool, excludeTags, noRepeat);
       }
-    } else if (currentLibrary[category]) {
-      // 从指定分类中抽取
-      currentLibrary[category].forEach(tagItem => {
-        // 获取标签内容（兼容新旧格式）
-        let tagContent, tagSubTitles;
-        
-        if (typeof tagItem === 'object') {
-          if (tagItem.content) {
-            // 新格式
-            tagContent = tagItem.content;
-            tagSubTitles = tagItem.subTitles || [];
-          } else if (tagItem.text) {
-            // 旧格式
-            tagContent = tagItem.text;
-            tagSubTitles = tagItem.subTitle ? tagItem.subTitle.split(',') : [];
-          }
-        } else {
-          tagContent = tagItem;
-          tagSubTitles = [];
+    } else if (Array.isArray(category) && category.length > 0) {
+      // 从多个指定分类中抽取
+      for (const cat of category) {
+        if (currentLibrary[cat]) {
+          this._addTagsToPool(currentLibrary, cat, tagPool, excludeTags, noRepeat);
         }
-        
-        // 检查是否在排除列表中
-        const isExcluded = excludeTags.some(excludeTag => 
-          tagContent.toLowerCase().includes(excludeTag.toLowerCase()));
-        
-        // 检查是否已经抽取过（如果启用了不重复抽取）
-        const isAlreadyDrawn = noRepeat && 
-          this.tagLibrary.isTagInHistory(category, tagContent);
-        
-        if (!isExcluded && !isAlreadyDrawn) {
-          tagPool.push({
-            category: category,
-            tagContent: tagContent,
-            tagSubTitles: tagSubTitles
-          });
-        }
-      });
+      }
+    } else if (typeof category === 'string' && currentLibrary[category]) {
+      // 从单个指定分类中抽取
+      this._addTagsToPool(currentLibrary, category, tagPool, excludeTags, noRepeat);
     }
     
     // 检查标签池是否为空
@@ -200,48 +136,90 @@ class TagDrawer {
           }
         }
         
-        // 获取并移除选中的标签
-        const selected = weightedPool.splice(selectedIndex, 1)[0];
-        drawnTags.push(selected.tag);
+        // 添加到抽取结果
+        drawnTags.push(weightedPool[selectedIndex].tag);
+        
+        // 从标签池中移除
+        weightedPool.splice(selectedIndex, 1);
       }
     } else {
-      // 传统随机抽取
+      // 普通随机抽取
       for (let i = 0; i < actualCount; i++) {
-        // 随机选择一个索引
         const randomIndex = Math.floor(Math.random() * tagPool.length);
-        
-        // 获取标签并从池中移除
-        const drawnTag = tagPool.splice(randomIndex, 1)[0];
-        
-        // 添加到结果
-        drawnTags.push(drawnTag);
+        drawnTags.push(tagPool[randomIndex]);
+        tagPool.splice(randomIndex, 1);
       }
     }
     
-    // 更新使用次数统计
+    // 更新使用次数
     this._updateUsageCount(drawnTags);
     
-    // 添加到历史记录（如果需要）
-    const shouldSaveHistory = options.saveHistory !== false;
-    if (shouldSaveHistory) {
-      this.tagLibrary.addToHistory(drawnTags);
-    }
-    
-    return { 
-      success: true, 
-      drawnTags: drawnTags,
-      message: `成功抽取了 ${drawnTags.length} 个标签` 
+    return {
+      success: true,
+      drawnTags
     };
   }
 
   /**
-   * 抽取标签（简化接口）
+   * 将分类中的标签添加到标签池
+   * @private
+   * @param {Object} library - 库对象
+   * @param {string} category - 分类名称
+   * @param {Array} pool - 标签池
+   * @param {Array} excludeTags - 排除的标签
+   * @param {boolean} noRepeat - 是否避免重复抽取
+   */
+  _addTagsToPool(library, category, pool, excludeTags, noRepeat) {
+    if (!Array.isArray(library[category])) return;
+    
+    library[category].forEach(tagItem => {
+      // 获取标签内容（兼容新旧格式）
+      let tagContent, tagSubTitles, tagCategory;
+      
+      if (typeof tagItem === 'object') {
+        if (tagItem.content) {
+          // 新格式
+          tagContent = tagItem.content;
+          tagSubTitles = tagItem.subTitles || [];
+          tagCategory = tagItem.category || category;
+        } else if (tagItem.text) {
+          // 旧格式
+          tagContent = tagItem.text;
+          tagSubTitles = tagItem.subTitle ? tagItem.subTitle.split(',') : [];
+          tagCategory = category;
+        }
+      } else {
+        tagContent = tagItem;
+        tagSubTitles = [];
+        tagCategory = category;
+      }
+      
+      // 检查是否在排除列表中
+      const isExcluded = excludeTags.some(excludeTag => 
+        tagContent.toLowerCase().includes(excludeTag.toLowerCase()));
+      
+      // 检查是否已经抽取过（如果启用了不重复抽取）
+      const isAlreadyDrawn = noRepeat && 
+        this.tagLibrary.isTagInHistory(tagCategory, tagContent);
+      
+      if (!isExcluded && !isAlreadyDrawn) {
+        pool.push({
+          category: tagCategory,
+          tagContent: tagContent,
+          tagSubTitles: tagSubTitles
+        });
+      }
+    });
+  }
+  
+  /**
+   * 抽取标签的公共接口
    * @param {Object} options - 抽取选项
    * @returns {Array} 抽取的标签数组
    */
   draw(options = {}) {
     const count = options.count || 3;
-    const category = options.category || 'all';
+    const category = options.selectedCategories || options.category || 'all';
     const excludeKeywords = options.excludeKeywords || [];
     const noDuplicates = options.noDuplicates !== false;
     
