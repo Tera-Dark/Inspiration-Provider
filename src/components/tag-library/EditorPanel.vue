@@ -11,7 +11,7 @@
             <span>导出JSON</span>
           </button>
           <button @click="saveEditorContent" class="btn primary-btn">
-            <span>保存到当前库</span>
+            <span>保存到库</span>
           </button>
         </div>
       </div>
@@ -515,26 +515,44 @@ export default defineComponent({
           }
         }
         
-        // 使用标签库API保存数据
+        // 弹出确认对话框，让用户选择保存模式
+        const isOverwrite = confirm('您想要覆盖现有的标签库内容吗？\n\n点击"确定"将完全覆盖当前库内容。\n点击"取消"将合并内容(保留现有标签并添加新标签)。');
+        
         let saveSuccess = false;
         
-        if (tagLibrary.setLibrary) {
-          saveSuccess = tagLibrary.setLibrary(editorTargetLibrary.value, libraryData.value);
-        } else if (tagLibrary.addLibrary) {
-          // 兼容旧版接口，使用addLibrary
-          saveSuccess = tagLibrary.addLibrary(editorTargetLibrary.value, libraryData.value);
+        if (isOverwrite) {
+          // 覆盖模式：使用setLibrary完全替换现有库内容
+          if (tagLibrary.setLibrary) {
+            saveSuccess = tagLibrary.setLibrary(editorTargetLibrary.value, libraryData.value);
+          } else if (tagLibrary.addLibrary) {
+            // 兼容旧版接口，使用addLibrary
+            saveSuccess = tagLibrary.addLibrary(editorTargetLibrary.value, libraryData.value);
+          } else {
+            throw new Error('缺少保存库的API，请确保标签库提供必要的方法');
+          }
+          
+          emitter.emit('notification', {
+            type: 'success',
+            message: `已成功覆盖"${editorTargetLibrary.value}"库`
+          });
         } else {
-          throw new Error('缺少保存库的API，请确保标签库提供必要的方法');
+          // 合并模式：使用extendLibrary合并新内容到现有库
+          if (tagLibrary.extendLibrary) {
+            tagLibrary.extendLibrary(editorTargetLibrary.value, libraryData.value);
+            saveSuccess = true;
+          } else {
+            throw new Error('缺少合并库的API，请确保标签库提供extendLibrary方法');
+          }
+          
+          emitter.emit('notification', {
+            type: 'success',
+            message: `已成功将内容合并到"${editorTargetLibrary.value}"库`
+          });
         }
         
         if (!saveSuccess) {
           throw new Error('保存库操作未成功完成，可能是因为数据格式问题');
         }
-        
-        emitter.emit('notification', {
-          type: 'success',
-          message: `已成功保存到"${editorTargetLibrary.value}"库`
-        });
         
         // 触发库更新事件
         emit('library-updated');
@@ -737,8 +755,9 @@ export default defineComponent({
   border: 1px solid var(--border-color, #ddd);
   border-radius: 6px;
   resize: none;
-  font-family: 'Courier New', monospace;
-  font-size: 14px;
+  font-family: monospace;
+  font-size: var(--font-size-base, 14px);
+  tab-size: 2;
   line-height: 1.5;
   color: var(--text-color, #333);
   background-color: var(--bg-color-light, #f9f9f9);

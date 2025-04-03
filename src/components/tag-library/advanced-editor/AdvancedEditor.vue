@@ -1880,4 +1880,27 @@ export default {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
+
+.cm-editor {
+  height: 100%;
+  font-family: 'Fira Code', 'Courier New', monospace;
+  font-size: var(--font-size-base, 16px);
+  line-height: 1.5;
+}
+
+.cm-tooltip {
+  border: 1px solid var(--border-color, #ddd);
+  background-color: var(--panel-bg-color, #ffffff);
+  color: var(--text-color, #333);
+  border-radius: 4px;
+  font-size: var(--font-size-xs, 12px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.panel-title {
+  margin: 0;
+  color: white;
+  font-size: var(--font-size-lg, 18px);
+  font-weight: 500;
+}
 </style> 

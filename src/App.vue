@@ -57,8 +57,34 @@ export default defineComponent({
       // 加载字体大小
       const savedFontSize = localStorage.getItem('user_font_size');
       if (savedFontSize) {
-        document.documentElement.style.setProperty('--font-size-base', `${savedFontSize}px`);
+        const baseSize = parseInt(savedFontSize);
+        const root = document.documentElement;
+        root.style.setProperty('--font-size-base', `${baseSize}px`);
+        
+        // 更新所有基于基础字体大小的变量
+        root.style.setProperty('--font-size-xs', `${baseSize * 0.85}px`);
+        root.style.setProperty('--font-size-sm', `${baseSize * 0.95}px`);
+        root.style.setProperty('--font-size-md', `${baseSize}px`);
+        root.style.setProperty('--font-size-lg', `${baseSize * 1.2}px`);
+        root.style.setProperty('--font-size-xl', `${baseSize * 1.5}px`);
       }
+      
+      // 监听字体大小变更事件，确保所有显示字体大小的组件都能获取到最新值
+      emitter.on('font-size-changed', (newSize) => {
+        const baseSize = parseInt(newSize);
+        const root = document.documentElement;
+        
+        // 更新所有CSS变量
+        root.style.setProperty('--font-size-base', `${baseSize}px`);
+        root.style.setProperty('--font-size-xs', `${baseSize * 0.85}px`);
+        root.style.setProperty('--font-size-sm', `${baseSize * 0.95}px`);
+        root.style.setProperty('--font-size-md', `${baseSize}px`);
+        root.style.setProperty('--font-size-lg', `${baseSize * 1.2}px`);
+        root.style.setProperty('--font-size-xl', `${baseSize * 1.5}px`);
+        
+        // 将最新的字体大小保存到本地存储
+        localStorage.setItem('user_font_size', baseSize.toString());
+      });
       
       // 加载主题颜色
       const savedThemeColor = localStorage.getItem('user_theme_color');

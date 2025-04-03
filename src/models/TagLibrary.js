@@ -124,6 +124,11 @@ class TagLibrary {
     localStorage.setItem(CONFIG.STORAGE_KEYS.TAG_LIBRARIES, JSON.stringify(this.libraries));
     localStorage.setItem(CONFIG.STORAGE_KEYS.CURRENT_LIBRARY_NAME, this.currentLibraryName);
     localStorage.setItem(CONFIG.STORAGE_KEYS.HISTORY, JSON.stringify(this.drawnHistory));
+    
+    // 触发全局标签库更新事件，通知所有组件数据已变更
+    if (typeof window !== 'undefined' && window.dispatchEvent) {
+      window.dispatchEvent(new CustomEvent('tagLibraryUpdated'));
+    }
   }
 
   /**
@@ -310,7 +315,11 @@ class TagLibrary {
    * @returns {Array} 历史记录数组
    */
   getHistory() {
-    return this.drawnHistory;
+    // 确保总是返回数组，即使数据为空
+    console.log('获取历史记录，当前数量:', this.drawnHistory.length);
+    
+    // 防止可能的引用类型问题，返回一个浅拷贝
+    return [...this.drawnHistory];
   }
 
   /**
@@ -354,14 +363,22 @@ class TagLibrary {
 
   /**
    * 清空历史记录
+   * @returns {boolean} 是否成功清空
    */
   clearHistory() {
-    this.drawnHistory = [];
-    this._saveToStorage();
-    
-    // 发送更新通知
-    if (typeof window !== 'undefined' && window.dispatchEvent) {
-      window.dispatchEvent(new CustomEvent('history-updated'));
+    try {
+      this.drawnHistory = [];
+      this._saveToStorage();
+      
+      // 发送更新通知
+      if (typeof window !== 'undefined' && window.dispatchEvent) {
+        window.dispatchEvent(new CustomEvent('history-updated'));
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('清空历史记录失败:', error);
+      return false;
     }
   }
 

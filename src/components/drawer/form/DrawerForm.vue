@@ -145,7 +145,7 @@
 </template>
 
 <script>
-import { defineComponent, ref, inject, computed, onMounted, watch } from 'vue';
+import { defineComponent, ref, inject, computed, onMounted, onUnmounted, watch } from 'vue';
 import MultiCategorySelector from '@/components/common/MultiCategorySelector.vue';
 
 export default defineComponent({
@@ -158,6 +158,9 @@ export default defineComponent({
     const emitter = inject('emitter');
     const tagLibrary = inject('tagLibrary');
     const tagDrawer = inject('tagDrawer');
+    
+    // 用于触发重新计算的刷新器
+    const refreshTrigger = ref(0);
     
     // 抽签设置
     const drawCount = ref(3);
@@ -175,12 +178,32 @@ export default defineComponent({
     
     // 计算属性
     const categories = computed(() => {
+      // 使用refreshTrigger强制更新
+      refreshTrigger.value;
       return tagLibrary.getCategories() || [];
     });
     
     const libraries = computed(() => {
+      // 使用refreshTrigger强制更新
+      refreshTrigger.value;
       return tagLibrary.getLibraryNames() || ['default'];
     });
+    
+    // 刷新数据
+    const refreshData = () => {
+      refreshTrigger.value++;
+      console.log('抽签设置: 标签库数据已更新', refreshTrigger.value);
+      
+      // 检查当前选择的库是否仍然存在
+      if (selectedLibrary.value && !libraries.value.includes(selectedLibrary.value)) {
+        // 如果当前选择的库不存在了，切换到第一个可用的库
+        if (libraries.value.length > 0) {
+          selectedLibrary.value = libraries.value[0];
+          // 切换库
+          handleLibraryChange();
+        }
+      }
+    };
     
     // 切换单/多分类模式
     const toggleMultiCategoryMode = () => {
@@ -297,9 +320,25 @@ export default defineComponent({
     
     // 处理库变更
     const handleLibraryChange = () => {
-      // 刷新分类列表
+      console.log(`切换标签库到: ${selectedLibrary.value}`);
+      
+      // 通知TagLibrary切换当前库
+      if (tagLibrary.setCurrentLibrary) {
+        tagLibrary.setCurrentLibrary(selectedLibrary.value);
+      }
+      
+      // 刷新数据以更新分类列表
+      refreshData();
+      
+      // 重置分类选择
       selectedCategory.value = 'all';
       selectedCategories.value = [];
+      
+      // 发出通知
+      emitter.emit('notification', {
+        type: 'info',
+        message: `已切换到标签库: ${selectedLibrary.value}`
+      });
     };
     
     // 初始化
@@ -325,6 +364,14 @@ export default defineComponent({
       if (libraries.value.length > 0) {
         selectedLibrary.value = tagLibrary.getCurrentLibrary() || libraries.value[0];
       }
+      
+      // 监听标签库更新事件
+      emitter.on('tagLibraryUpdated', refreshData);
+    });
+    
+    // 组件卸载时移除事件监听
+    onUnmounted(() => {
+      emitter.off('tagLibraryUpdated', refreshData);
     });
     
     // 保存设置
@@ -371,7 +418,8 @@ export default defineComponent({
       increaseCount,
       decreaseCount,
       toggleAdvanced,
-      handleLibraryChange
+      handleLibraryChange,
+      refreshData
     };
   }
 });

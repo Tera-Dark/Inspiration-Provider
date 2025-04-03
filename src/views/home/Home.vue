@@ -323,19 +323,33 @@ export default defineComponent({
   overflow-y: auto;
 }
 
-.panel-header {
+.section-header {
+  padding: 15px 20px;
+  border-bottom: 1px solid var(--border-color, #eee);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid var(--border-color, #eee);
 }
 
 .panel-title {
+  margin: 0;
   font-size: 1.2rem;
+  font-weight: 600;
   color: var(--text-color, #333);
-  margin-bottom: 0;
+  position: relative;
+  padding-left: 0.5rem;
+}
+
+.panel-title::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 1.2em;
+  background-color: var(--accent-color, #42b883);
+  border-radius: 2px;
 }
 
 .copy-buttons {
@@ -368,48 +382,20 @@ export default defineComponent({
 
 /* 历史记录区域 */
 .history-section {
-  height: 30%;
-  background-color: var(--panel-bg-color, #fff);
-  border-radius: var(--border-radius-medium, 12px);
-  box-shadow: var(--shadow-medium, 0 4px 16px rgba(0, 0, 0, 0.08));
+  margin-top: 20px;
+  height: 35%;
+  min-height: 250px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  border-top: 3px solid var(--accent-color, #42b883);
-}
-
-.section-header {
-  padding: 1rem 1.5rem;
-  border-bottom: 1px solid var(--border-color-light, rgba(0, 0, 0, 0.07));
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.panel-title {
-  margin: 0;
-  font-size: 1.2rem;
-  font-weight: 600;
-  color: var(--text-color, #333);
-  position: relative;
-  padding-left: 0.5rem;
-}
-
-.panel-title::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 3px;
-  height: 1.2em;
-  background-color: var(--accent-color, #42b883);
-  border-radius: 2px;
+  background-color: var(--panel-bg-color, #fff);
+  border-radius: var(--border-radius-medium, 8px);
+  box-shadow: var(--shadow-small, 0 2px 8px rgba(0, 0, 0, 0.1));
 }
 
 .history-content {
   flex: 1;
-  overflow-y: auto;
+  overflow: auto;
   padding: 0;
 }
 

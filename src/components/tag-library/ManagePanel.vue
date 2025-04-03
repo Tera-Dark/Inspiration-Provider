@@ -164,19 +164,29 @@ export default defineComponent({
       }
       
       try {
-        tagLibrary.addLibrary(createLibraryName.value);
+        // 使用专门的创建空库方法
+        if (tagLibrary.createEmptyLibrary) {
+          tagLibrary.createEmptyLibrary(createLibraryName.value);
+        } else {
+          // 如果没有该方法，则回退到addLibrary
+          tagLibrary.addLibrary(createLibraryName.value, {});
+        }
         
         emitter.emit('notification', {
           type: 'success',
           message: `成功创建库 "${createLibraryName.value}"`
         });
         
+        // 存储当前创建的库名，用于切换
+        const newLibName = createLibraryName.value;
+        
         // 清空表单
         createLibraryName.value = '';
         
         // 通知父组件库已更新
         emit('library-updated');
-        emit('switch-library', createLibraryName.value);
+        // 切换到新创建的库
+        emit('switch-library', newLibName);
       } catch (error) {
         emitter.emit('notification', {
           type: 'error',

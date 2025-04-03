@@ -109,15 +109,9 @@ export default defineComponent({
 }
 
 .notification-icon {
-  margin-right: 12px;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: bold;
   flex-shrink: 0;
+  font-size: var(--font-size-lg, 18px);
+  margin-right: 10px;
 }
 
 .notification.success .notification-icon {

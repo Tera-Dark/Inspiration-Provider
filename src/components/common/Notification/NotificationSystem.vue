@@ -14,7 +14,10 @@
             <span v-else-if="notification.type === 'warning'">!</span>
             <span v-else>ℹ</span>
           </div>
-          <div class="notification-message">{{ notification.message }}</div>
+          <div class="notification-message">
+            {{ notification.message }}
+            <span v-if="notification.count > 1" class="notification-count">x{{ notification.count }}</span>
+          </div>
           <button @click="removeNotification(notification.id)" class="close-btn">&times;</button>
         </div>
         <div class="notification-progress" :style="{ animationDuration: `${notification.duration}ms` }"></div>
@@ -39,30 +42,56 @@ export default defineComponent({
       // 如果通知功能被禁用，直接返回
       if (!showNotifications.value) return;
       
-      const id = nextId++;
       const duration = notification.duration || 2000; // 默认显示2秒
       
-      // 创建通知对象
-      const newNotification = {
-        id,
-        message: notification.message,
-        type: notification.type || 'info',
-        duration
-      };
+      // 检查是否存在相同消息的通知
+      const existingNotificationIndex = notifications.value.findIndex(
+        n => n.message === notification.message && n.type === notification.type
+      );
       
-      // 添加到通知列表
-      notifications.value.push(newNotification);
-      
-      // 设置自动移除计时器
-      setTimeout(() => {
-        removeNotification(id);
-      }, duration);
+      if (existingNotificationIndex !== -1) {
+        // 如果存在相同消息，增加计数并重置计时器
+        const existingNotification = notifications.value[existingNotificationIndex];
+        clearTimeout(existingNotification.timerId);
+        
+        existingNotification.count += 1;
+        existingNotification.duration = duration;
+        
+        // 重新设置自动移除计时器
+        existingNotification.timerId = setTimeout(() => {
+          removeNotification(existingNotification.id);
+        }, duration);
+        
+        // 更新通知数组，触发视图更新
+        notifications.value = [...notifications.value];
+      } else {
+        // 创建新通知对象
+        const id = nextId++;
+        const newNotification = {
+          id,
+          message: notification.message,
+          type: notification.type || 'info',
+          duration,
+          count: 1,
+          timerId: null
+        };
+        
+        // 设置自动移除计时器
+        newNotification.timerId = setTimeout(() => {
+          removeNotification(id);
+        }, duration);
+        
+        // 添加到通知列表
+        notifications.value.push(newNotification);
+      }
     };
     
     // 移除通知
     const removeNotification = (id) => {
       const index = notifications.value.findIndex(n => n.id === id);
       if (index !== -1) {
+        // 清除计时器
+        clearTimeout(notifications.value[index].timerId);
         notifications.value.splice(index, 1);
       }
     };
@@ -86,6 +115,8 @@ export default defineComponent({
       
       // 如果禁用通知，清空当前所有通知
       if (!enabled) {
+        // 清除所有计时器
+        notifications.value.forEach(n => clearTimeout(n.timerId));
         notifications.value = [];
       }
     });
@@ -101,6 +132,8 @@ export default defineComponent({
     
     // 组件销毁时取消订阅
     onBeforeUnmount(() => {
+      // 清除所有计时器
+      notifications.value.forEach(n => clearTimeout(n.timerId));
       unsubscribeNotification();
       unsubscribeSettings();
     });
@@ -109,38 +142,16 @@ export default defineComponent({
     watch(notifications, (newValue) => {
       // 限制同时显示的通知数量，避免堆积
       if (newValue.length > 5) {
+        // 先清除多余通知的计时器
+        for (let i = 0; i < newValue.length - 5; i++) {
+          if (newValue[i] && newValue[i].timerId) {
+            clearTimeout(newValue[i].timerId);
+          }
+        }
         // 删除最早的通知，保留最新的5条
-        const toRemove = newValue.length - 5;
-        notifications.value = newValue.slice(toRemove);
+        notifications.value = newValue.slice(newValue.length - 5);
       }
     }, { deep: true });
-    
-    // 优化显示通知的方法
-    const showNotification = (notification) => {
-      // 去重：如果有相同内容的通知，先移除它
-      const existingIndex = notifications.value.findIndex(n => 
-        n.message === notification.message && n.type === notification.type
-      );
-      
-      if (existingIndex !== -1) {
-        clearTimeout(notifications.value[existingIndex].timeoutId);
-        notifications.value.splice(existingIndex, 1);
-      }
-      
-      // 添加唯一ID和超时标识
-      const id = Date.now() + Math.random().toString(36).substr(2, 5);
-      const timeoutId = setTimeout(() => {
-        removeNotification(id);
-      }, notification.duration || 3000);
-      
-      // 添加新通知
-      notifications.value.push({
-        ...notification,
-        id,
-        timeoutId,
-        duration: notification.duration || 3000
-      });
-    };
     
     return {
       notifications,
@@ -179,15 +190,9 @@ export default defineComponent({
 }
 
 .notification-icon {
-  margin-right: 12px;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: bold;
   flex-shrink: 0;
+  font-size: var(--font-size-lg, 18px);
+  margin-right: 12px;
 }
 
 .notification.success .notification-icon {
@@ -216,6 +221,17 @@ export default defineComponent({
   padding-right: 30px;
   font-size: 0.95rem;
   color: var(--text-color, #333);
+}
+
+.notification-count {
+  display: inline-block;
+  font-size: 0.85rem;
+  font-weight: bold;
+  margin-left: 4px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background-color: var(--bg-color-light, #f0f0f0);
+  color: var(--text-color-light, #666);
 }
 
 .close-btn {
@@ -292,6 +308,11 @@ export default defineComponent({
 
 :global(.dark-mode) .notification-message {
   color: var(--text-color-dark, #e0e0e0);
+}
+
+:global(.dark-mode) .notification-count {
+  background-color: var(--bg-color-light-dark, #333333);
+  color: var(--text-color-light-dark, #aaaaaa);
 }
 
 :global(.dark-mode) .close-btn {

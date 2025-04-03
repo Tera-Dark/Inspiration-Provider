@@ -15,9 +15,9 @@
               step="1" 
               v-model="fontSize" 
               class="slider" 
-              @change="applyFontSize"
+              @input="applyFontSize"
             />
-            <span class="slider-value">{{ fontSize }}px</span>
+            <span class="slider-value" :style="{ fontSize: fontSize + 'px' }">{{ fontSize }}px</span>
           </div>
           <div class="setting-description">调整应用的整体字体大小 (12-20像素)</div>
         </div>
@@ -101,8 +101,27 @@ export default defineComponent({
     
     // 应用字体大小
     const applyFontSize = () => {
-      document.documentElement.style.setProperty('--base-font-size', `${fontSize.value}px`);
-      saveSettings();
+      const root = document.documentElement;
+      const baseSize = fontSize.value;
+      
+      // 设置基础字体大小
+      root.style.setProperty('--font-size-base', `${baseSize}px`);
+      
+      // 更新所有相关字体大小变量
+      root.style.setProperty('--font-size-xs', `${baseSize * 0.85}px`);
+      root.style.setProperty('--font-size-sm', `${baseSize * 0.95}px`);
+      root.style.setProperty('--font-size-md', `${baseSize}px`);
+      root.style.setProperty('--font-size-lg', `${baseSize * 1.2}px`);
+      root.style.setProperty('--font-size-xl', `${baseSize * 1.5}px`);
+      
+      // 发出字体大小变更事件，以便所有相关组件能够更新
+      emitter.emit('font-size-changed', baseSize);
+      
+      // 保存到本地存储
+      localStorage.setItem('user_font_size', baseSize.toString());
+      
+      // 静默保存设置，不显示通知
+      saveSettings(true);
     };
     
     // 设置主题颜色
@@ -123,7 +142,8 @@ export default defineComponent({
       const lighter = `rgba(${r}, ${g}, ${b}, 0.1)`;
       document.documentElement.style.setProperty('--primary-light-color', lighter);
       
-      saveSettings();
+      // 静默保存设置，不显示通知
+      saveSettings(true);
     };
     
     // 切换深色模式
@@ -144,7 +164,7 @@ export default defineComponent({
     };
     
     // 保存设置
-    const saveSettings = () => {
+    const saveSettings = (silent = false) => {
       localStorage.setItem('theme_settings', JSON.stringify({
         fontSize: fontSize.value,
         themeColor: themeColor.value,
@@ -152,8 +172,8 @@ export default defineComponent({
         showNotifications: showNotifications.value
       }));
       
-      // 仅当通知启用时才显示保存成功提示
-      if (showNotifications.value) {
+      // 仅当启用通知且不是静默模式时才显示成功提示
+      if (showNotifications.value && !silent) {
         emitter.emit('notification', {
           type: 'success',
           message: '主题设置已保存'
@@ -175,9 +195,18 @@ export default defineComponent({
           darkMode.value = settings.darkMode || false;
           showNotifications.value = settings.showNotifications !== false; // 默认启用通知
           
-          // 应用设置到DOM
-          document.documentElement.style.setProperty('--base-font-size', `${fontSize.value}px`);
-          document.documentElement.style.setProperty('--primary-color', themeColor.value);
+          // 应用字体大小设置
+          const baseSize = fontSize.value;
+          const root = document.documentElement;
+          root.style.setProperty('--font-size-base', `${baseSize}px`);
+          root.style.setProperty('--font-size-xs', `${baseSize * 0.85}px`);
+          root.style.setProperty('--font-size-sm', `${baseSize * 0.95}px`);
+          root.style.setProperty('--font-size-md', `${baseSize}px`);
+          root.style.setProperty('--font-size-lg', `${baseSize * 1.2}px`);
+          root.style.setProperty('--font-size-xl', `${baseSize * 1.5}px`);
+          
+          // 应用主题颜色
+          root.style.setProperty('--primary-color', themeColor.value);
           
           if (darkMode.value) {
             document.body.classList.add('dark-mode');
@@ -332,7 +361,7 @@ export default defineComponent({
   left: 50%;
   transform: translate(-50%, -50%);
   color: white;
-  font-size: 16px;
+  font-size: var(--font-size-md, 16px);
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 

@@ -69,25 +69,36 @@ class TagDrawer {
    * @returns {Object} 抽取结果
    */
   drawTags(count, category = 'all', excludeTags = [], noRepeat = false, options = {}) {
-    // 根据当前选择的分类获取标签池
+    // 根据选择的库和分类获取标签池
     let tagPool = [];
-    const currentLibrary = this.tagLibrary.getCurrentLibrary();
+    
+    // 如果指定了库名，使用指定的库，否则使用当前库
+    const libraryName = options.library || this.tagLibrary.getCurrentLibraryName();
+    const targetLibrary = this.tagLibrary.getLibrary(libraryName);
+    
+    // 如果指定的库不存在或为空，则返回错误
+    if (!targetLibrary || Object.keys(targetLibrary).length === 0) {
+      return {
+        success: false,
+        message: `找不到标签库 "${libraryName}" 或该库为空`
+      };
+    }
     
     if (category === 'all') {
       // 从所有分类中抽取
-      for (const cat in currentLibrary) {
-        this._addTagsToPool(currentLibrary, cat, tagPool, excludeTags, noRepeat);
+      for (const cat in targetLibrary) {
+        this._addTagsToPool(targetLibrary, cat, tagPool, excludeTags, noRepeat);
       }
     } else if (Array.isArray(category) && category.length > 0) {
       // 从多个指定分类中抽取
       for (const cat of category) {
-        if (currentLibrary[cat]) {
-          this._addTagsToPool(currentLibrary, cat, tagPool, excludeTags, noRepeat);
+        if (targetLibrary[cat]) {
+          this._addTagsToPool(targetLibrary, cat, tagPool, excludeTags, noRepeat);
         }
       }
-    } else if (typeof category === 'string' && currentLibrary[category]) {
+    } else if (typeof category === 'string' && targetLibrary[category]) {
       // 从单个指定分类中抽取
-      this._addTagsToPool(currentLibrary, category, tagPool, excludeTags, noRepeat);
+      this._addTagsToPool(targetLibrary, category, tagPool, excludeTags, noRepeat);
     }
     
     // 检查标签池是否为空

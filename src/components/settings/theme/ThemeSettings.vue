@@ -86,14 +86,14 @@
         <div class="setting-label">字体大小</div>
         <div class="setting-control">
           <div class="slider-control">
-            <div class="slider-label">{{ fontSize }}px</div>
+            <div class="slider-label" :style="{ fontSize: fontSize + 'px' }">{{ fontSize }}px</div>
             <input 
               type="range" 
               v-model.number="fontSize" 
               min="12" 
               max="20" 
               step="1"
-              @change="updateFontSize"
+              @input="updateFontSize"
               class="range-slider"
             />
             <div class="slider-values">
@@ -244,7 +244,7 @@ export default defineComponent({
     };
     
     // 保存设置
-    const saveSettings = () => {
+    const saveSettings = (silent = false) => {
       try {
         const settings = {
           darkMode: darkMode.value,
@@ -283,7 +283,18 @@ export default defineComponent({
       }
       
       // 应用字体大小
-      root.style.setProperty('--base-font-size', `${fontSize.value}px`);
+      root.style.setProperty('--font-size-base', `${fontSize.value}px`);
+      
+      // 更新所有基于基础字体大小的变量
+      const baseSize = fontSize.value;
+      root.style.setProperty('--font-size-xs', `${baseSize * 0.85}px`);
+      root.style.setProperty('--font-size-sm', `${baseSize * 0.95}px`);
+      root.style.setProperty('--font-size-md', `${baseSize}px`);
+      root.style.setProperty('--font-size-lg', `${baseSize * 1.2}px`);
+      root.style.setProperty('--font-size-xl', `${baseSize * 1.5}px`);
+      
+      // 保存字体大小到本地存储以便其他组件使用
+      localStorage.setItem('user_font_size', fontSize.value.toString());
       
       // 应用边框圆角
       root.style.setProperty('--border-radius-small', `${Math.max(2, borderRadius.value / 2)}px`);
@@ -301,7 +312,7 @@ export default defineComponent({
     // 设置深色模式
     const setDarkMode = (value) => {
       darkMode.value = value;
-      updateSettings();
+      updateSettings(true);
     };
     
     // 设置主题
@@ -317,28 +328,46 @@ export default defineComponent({
         }
       }
       
-      updateSettings();
+      updateSettings(true);
     };
     
     // 更新自定义颜色
     const updateCustomColors = () => {
       currentTheme.value = 'custom';
-      updateSettings();
+      updateSettings(true);
     };
     
     // 更新字体大小
     const updateFontSize = () => {
-      updateSettings();
+      // 立即应用字体大小变化，确保实时更新
+      const root = document.documentElement;
+      const baseSize = fontSize.value;
+      
+      // 应用字体大小
+      root.style.setProperty('--font-size-base', `${baseSize}px`);
+      
+      // 更新所有基于基础字体大小的变量
+      root.style.setProperty('--font-size-xs', `${baseSize * 0.85}px`);
+      root.style.setProperty('--font-size-sm', `${baseSize * 0.95}px`);
+      root.style.setProperty('--font-size-md', `${baseSize}px`);
+      root.style.setProperty('--font-size-lg', `${baseSize * 1.2}px`);
+      root.style.setProperty('--font-size-xl', `${baseSize * 1.5}px`);
+      
+      // 发出字体大小变更事件，以便所有相关组件能够更新
+      emitter.emit('font-size-changed', baseSize);
+      
+      // 静默保存设置
+      updateSettings(true);
     };
     
     // 更新边框圆角
     const updateBorderRadius = () => {
-      updateSettings();
+      updateSettings(true);
     };
     
     // 更新所有设置
-    const updateSettings = () => {
-      saveSettings();
+    const updateSettings = (silent = false) => {
+      saveSettings(silent);
       applyTheme();
     };
     
@@ -885,5 +914,16 @@ export default defineComponent({
   .theme-grid {
     grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
   }
+}
+
+.color-swatch.active::after {
+  content: "✓";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-size: var(--font-size-md, 16px);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 </style> 

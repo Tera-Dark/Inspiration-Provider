@@ -167,7 +167,7 @@
 </template>
 
 <script>
-import { defineComponent, ref, computed, watch, inject } from 'vue';
+import { defineComponent, ref, computed, watch, inject, onMounted, onUnmounted } from 'vue';
 
 export default defineComponent({
   name: 'PreviewPanel',
@@ -179,6 +179,7 @@ export default defineComponent({
   },
   setup(props) {
     const tagLibrary = inject('tagLibrary');
+    const emitter = inject('emitter');
     
     // 预览相关状态
     const previewFilter = ref('');
@@ -186,9 +187,12 @@ export default defineComponent({
     const previewDisplayMode = ref('category');
     const pageSize = ref(20);
     const currentPage = ref(1);
+    const refreshTrigger = ref(0);
     
     // 计算属性：分类列表
     const categories = computed(() => {
+      // 使用refreshTrigger强制重新计算
+      refreshTrigger.value;
       try {
         // 先尝试使用获取指定库分类的方法
         if (tagLibrary.getCategories) {
@@ -207,6 +211,8 @@ export default defineComponent({
     
     // 计算属性：标签总数
     const tagCount = computed(() => {
+      // 使用refreshTrigger强制重新计算
+      refreshTrigger.value;
       try {
         // 先尝试使用获取指定库标签数量的方法
         if (tagLibrary.getTagCountByLibrary) {
@@ -243,6 +249,8 @@ export default defineComponent({
     
     // 筛选后的标签
     const filteredPreviewTags = computed(() => {
+      // 使用refreshTrigger强制重新计算
+      refreshTrigger.value;
       try {
         // 获取所有标签
         let allTags = [];
@@ -375,12 +383,32 @@ export default defineComponent({
       previewCategory.value = 'all';
     });
     
+    // 添加刷新数据的方法
+    const refreshData = () => {
+      // 递增刷新触发器，强制计算属性重新计算
+      refreshTrigger.value++;
+      // 重置到第一页，确保用户看到最新的数据
+      currentPage.value = 1;
+    };
+    
+    // 监听标签库更新事件
+    onMounted(() => {
+      // 监听全局标签库更新事件
+      emitter.on('tagLibraryUpdated', refreshData);
+    });
+    
+    // 组件卸载时移除事件监听
+    onUnmounted(() => {
+      emitter.off('tagLibraryUpdated', refreshData);
+    });
+    
     return {
       previewFilter,
       previewCategory,
       previewDisplayMode,
       pageSize,
       currentPage,
+      refreshTrigger,
       categories,
       tagCount,
       categoryCount,

@@ -134,13 +134,16 @@
 </template>
 
 <script>
-import { defineComponent, ref, inject, computed, onMounted } from 'vue';
+import { defineComponent, ref, inject, computed, onMounted, onUnmounted } from 'vue';
 
 export default defineComponent({
   name: 'DrawerSettings',
   setup() {
     const emitter = inject('emitter');
     const tagLibrary = inject('tagLibrary');
+    
+    // 用于触发刷新的响应式变量
+    const refreshTrigger = ref(0);
     
     // 抽签设置
     const defaultDrawCount = ref(3);
@@ -156,8 +159,25 @@ export default defineComponent({
     // 标签库设置
     const defaultLibrary = ref('default');
     const libraries = computed(() => {
+      // 使用refreshTrigger强制更新
+      refreshTrigger.value;
       return tagLibrary.getLibraryNames() || ['default'];
     });
+    
+    // 刷新数据
+    const refreshData = () => {
+      refreshTrigger.value++;
+      console.log('抽签设置: 标签库列表已更新', refreshTrigger.value);
+      
+      // 如果当前选中的库已不存在，则自动选择第一个可用的库
+      if (defaultLibrary.value && !libraries.value.includes(defaultLibrary.value)) {
+        if (libraries.value.length > 0) {
+          defaultLibrary.value = libraries.value[0];
+          // 保存更改
+          saveLibrarySettings();
+        }
+      }
+    };
     
     // 增减默认抽签数量
     const increaseDefaultDrawCount = () => {
@@ -280,6 +300,14 @@ export default defineComponent({
     // 初始化
     onMounted(() => {
       initSettings();
+      
+      // 监听标签库更新事件
+      emitter.on('tagLibraryUpdated', refreshData);
+    });
+    
+    // 清理事件监听
+    onUnmounted(() => {
+      emitter.off('tagLibraryUpdated', refreshData);
     });
     
     return {
@@ -301,7 +329,10 @@ export default defineComponent({
       // 标签库设置
       defaultLibrary,
       libraries,
-      saveLibrarySettings
+      saveLibrarySettings,
+      
+      // 刷新功能
+      refreshData
     };
   }
 });
