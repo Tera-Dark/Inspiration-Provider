@@ -19,11 +19,14 @@ class TagLoader {
     try {
       console.log('正在加载所长常规法典...');
       
-      // 尝试多个可能的文件名
+      // 尝试多个可能的文件名，包括GitHub Pages路径
       const possibleFileNames = [
         './所长常规法典.json',
         './public/所长常规法典.json',
         '/所长常规法典.json',
+        '/public/所长常规法典.json',
+        '/Inspiration-Provider/所长常规法典.json',
+        '/Inspiration-Provider/public/所长常规法典.json',
         '/@所长常规法典.json'
       ];
       
@@ -34,7 +37,7 @@ class TagLoader {
       for (const fileName of possibleFileNames) {
         try {
           console.log(`尝试加载: ${fileName}`);
-          response = await fetch(fileName);
+          response = await fetch(fileName, { cache: 'no-cache' });
           
           if (response.ok) {
             console.log(`成功找到并加载: ${fileName}`);
