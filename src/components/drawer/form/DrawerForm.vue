@@ -49,15 +49,57 @@
           v-model:value="selectedCategories"
           class="multi-selector"
         />
+        
+        <div v-if="useMultiCategories && selectedCategories.length > 1" class="balance-option">
+          <input type="checkbox" id="ensureEachCategory" v-model="ensureEachCategory" />
+          <label for="ensureEachCategory">多分类平衡模式（确保每个分类至少抽取一个标签）</label>
+        </div>
       </div>
       
       <div class="section">
         <h3>选择Tag库</h3>
-        <select v-model="selectedLibrary" class="form-select" @change="handleLibraryChange">
-          <option v-for="library in libraries" :key="library" :value="library">
-            {{ library }}
-          </option>
-        </select>
+        <div class="library-selection">
+          <select v-model="selectedLibrary" class="form-select" @change="handleLibraryChange">
+            <option :value="selectedLibrary">{{ selectedLibrary }}</option>
+            <option v-for="library in filteredLibraries" :key="library" :value="library">
+              {{ library }}
+            </option>
+          </select>
+          
+          <!-- 最近使用的库快速选择 -->
+          <div v-if="recentLibraries.length > 0" class="recent-libraries">
+            <span class="recent-label">最近使用:</span>
+            <div class="recent-chips">
+              <button 
+                v-for="library in recentLibraries" 
+                :key="library" 
+                @click="quickSelectLibrary(library)"
+                class="library-chip"
+                :class="{ 'active': selectedLibrary === library }"
+              >
+                {{ library }}
+              </button>
+            </div>
+          </div>
+          
+          <!-- 库信息指示器 -->
+          <div class="library-info" v-if="currentLibraryInfo">
+            <div class="info-item">
+              <span class="info-label">分类数:</span>
+              <span class="info-value">{{ currentLibraryInfo.categoryCount }}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">标签数:</span>
+              <span class="info-value">{{ currentLibraryInfo.tagCount }}</span>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 加载指示器 -->
+        <div v-if="isLibraryLoading" class="loading-indicator">
+          <div class="spinner"></div>
+          <span>加载标签库中...</span>
+        </div>
       </div>
       
       <!-- 高级设置 -->
@@ -133,10 +175,12 @@
       </div>
       
       <div class="button-group">
-        <button @click="drawTags" class="primary-button">
-          <span class="button-icon">🎯</span> 抽签
+        <button @click="drawTags" class="primary-button" :disabled="isDrawing">
+          <span v-if="isDrawing" class="button-spinner"></span>
+          <span v-else class="button-icon">🎯</span> 
+          {{ isDrawing ? '抽取中...' : '抽签' }}
         </button>
-        <button @click="resetForm" class="secondary-button">
+        <button @click="resetForm" class="secondary-button" :disabled="isDrawing">
           <span class="button-icon">🔄</span> 重置
         </button>
       </div>
@@ -175,6 +219,12 @@ export default defineComponent({
     const showAnimation = ref(false);
     const animationIntensity = ref(60);
     const maxHistoryCount = ref(20);
+    const ensureEachCategory = ref(false);
+    
+    // 库加载状态
+    const isLibraryLoading = ref(false);
+    // 抽取加载状态
+    const isDrawing = ref(false);
     
     // 计算属性
     const categories = computed(() => {
@@ -187,6 +237,38 @@ export default defineComponent({
       // 使用refreshTrigger强制更新
       refreshTrigger.value;
       return tagLibrary.getLibraryNames() || ['default'];
+    });
+    
+    // 获取最近使用的库
+    const recentLibraries = computed(() => {
+      refreshTrigger.value;
+      const recent = tagLibrary.getRecentLibraries() || [];
+      // 过滤掉当前选中的库
+      return recent.filter(lib => lib !== selectedLibrary.value);
+    });
+    
+    // 获取当前库的信息
+    const currentLibraryInfo = computed(() => {
+      refreshTrigger.value;
+      if (!selectedLibrary.value) return null;
+      
+      const categories = tagLibrary.getCategories(selectedLibrary.value) || [];
+      let tagCount = 0;
+      
+      // 计算总标签数
+      if (selectedLibrary.value) {
+        tagCount = tagLibrary.getTagCountByLibrary(selectedLibrary.value);
+      }
+      
+      return {
+        categoryCount: categories.length,
+        tagCount: tagCount
+      };
+    });
+    
+    // 过滤掉当前选中的库，避免重复显示
+    const filteredLibraries = computed(() => {
+      return libraries.value.filter(lib => lib !== selectedLibrary.value);
     });
     
     // 刷新数据
@@ -220,7 +302,10 @@ export default defineComponent({
     };
     
     // 事件处理
-    const drawTags = () => {
+    const drawTags = async () => {
+      // 设置抽取中状态
+      isDrawing.value = true;
+      
       try {
         // 解析排除关键词
         const excludeList = excludeKeywords.value
@@ -243,17 +328,35 @@ export default defineComponent({
         if (useMultiCategories.value) {
           // 多分类模式：检查是否有选中的分类
           if (selectedCategories.value.length > 0) {
-            options.selectedCategories = selectedCategories.value;
+            console.log('多分类模式-选中分类:', selectedCategories.value);
+            
+            // 直接设置category为选中的分类数组
+            options.category = selectedCategories.value;
+            
+            // 确保在多分类模式下，如果启用了确保平衡功能且有至少两个选中的分类，则启用平衡
+            if (ensureEachCategory.value && selectedCategories.value.length > 1) {
+              console.log('启用多分类平衡抽取');
+              options.ensureEachCategory = true;
+            } else {
+              options.ensureEachCategory = false;
+              console.log('未启用多分类平衡抽取：', ensureEachCategory.value ? '分类数量不足' : '用户未启用平衡功能');
+            }
           } else {
-            options.category = 'all'; // 没有选中分类，默认全部分类
+            console.log('多分类模式-未选择任何分类，默认使用all');
+            options.category = 'all';
+            options.ensureEachCategory = false;
           }
         } else {
           // 单分类模式
+          console.log('单分类模式-使用分类:', selectedCategory.value);
           options.category = selectedCategory.value;
+          options.ensureEachCategory = false; // 单分类模式下不启用平衡功能
         }
         
-        // 执行抽取
-        const result = tagDrawer.draw(options);
+        console.log('最终抽取选项:', options);
+        
+        // 执行抽取 (现在是异步的)
+        const result = await tagDrawer.draw(options);
         
         // 播放动画效果（如果启用）
         if (showAnimation.value) {
@@ -272,10 +375,14 @@ export default defineComponent({
           message: `成功抽取了 ${result.length} 个标签`
         });
       } catch (error) {
+        console.error('抽取失败:', error);
         emitter.emit('notification', {
           type: 'error',
-          message: `抽取失败: ${error.message}`
+          message: `抽取失败: ${error.message || '未知错误'}`
         });
+      } finally {
+        // 完成后清除抽取中状态
+        isDrawing.value = false;
       }
     };
     
@@ -322,23 +429,40 @@ export default defineComponent({
     const handleLibraryChange = () => {
       console.log(`切换标签库到: ${selectedLibrary.value}`);
       
-      // 通知TagLibrary切换当前库
-      if (tagLibrary.setCurrentLibrary) {
-        tagLibrary.setCurrentLibrary(selectedLibrary.value);
+      // 设置加载状态
+      isLibraryLoading.value = true;
+      
+      // 使用setTimeout让UI有时间更新加载状态
+      setTimeout(() => {
+        // 通知TagLibrary切换当前库
+        if (tagLibrary.setCurrentLibrary) {
+          tagLibrary.setCurrentLibrary(selectedLibrary.value);
+        }
+        
+        // 刷新数据以更新分类列表
+        refreshData();
+        
+        // 重置分类选择
+        selectedCategory.value = 'all';
+        selectedCategories.value = [];
+        
+        // 发出通知
+        emitter.emit('notification', {
+          type: 'info',
+          message: `已切换到标签库: ${selectedLibrary.value}`
+        });
+        
+        // 清除加载状态
+        isLibraryLoading.value = false;
+      }, 200); // 添加小延迟，让用户感知到加载过程
+    };
+    
+    // 快速选择库
+    const quickSelectLibrary = (libraryName) => {
+      if (libraryName && libraryName !== selectedLibrary.value) {
+        selectedLibrary.value = libraryName;
+        handleLibraryChange();
       }
-      
-      // 刷新数据以更新分类列表
-      refreshData();
-      
-      // 重置分类选择
-      selectedCategory.value = 'all';
-      selectedCategories.value = [];
-      
-      // 发出通知
-      emitter.emit('notification', {
-        type: 'info',
-        message: `已切换到标签库: ${selectedLibrary.value}`
-      });
     };
     
     // 初始化
@@ -348,21 +472,73 @@ export default defineComponent({
       if (userSettings) {
         try {
           const settings = JSON.parse(userSettings);
-          drawCount.value = settings.drawCount || 3;
-          noDuplicates.value = settings.noDuplicates !== false;
-          useWeights.value = settings.useWeights || false;
-          showAnimation.value = settings.showAnimation || false;
-          animationIntensity.value = settings.animationIntensity || 60;
-          maxHistoryCount.value = settings.maxHistoryCount || 20;
-          useMultiCategories.value = settings.useMultiCategories || false;
+          
+          // 应用设置
+          if (typeof settings.defaultDrawCount === 'number') {
+            drawCount.value = settings.defaultDrawCount;
+          }
+          
+          if (typeof settings.noDuplicates === 'boolean') {
+            noDuplicates.value = settings.noDuplicates;
+          }
+          
+          if (typeof settings.useWeights === 'boolean') {
+            useWeights.value = settings.useWeights;
+          }
+          
+          if (typeof settings.showAnimation === 'boolean') {
+            showAnimation.value = settings.showAnimation;
+          }
+          
+          if (typeof settings.animationIntensity === 'number') {
+            animationIntensity.value = settings.animationIntensity;
+          }
+          
+          if (typeof settings.maxHistoryCount === 'number') {
+            maxHistoryCount.value = settings.maxHistoryCount;
+          }
+          
+          if (typeof settings.useMultiCategories === 'boolean') {
+            useMultiCategories.value = settings.useMultiCategories;
+          }
+          
+          if (typeof settings.ensureEachCategory === 'boolean') {
+            ensureEachCategory.value = settings.ensureEachCategory;
+          }
         } catch (e) {
           console.error('加载抽签设置失败', e);
         }
       }
       
+      // 加载默认库设置
+      const librarySettings = localStorage.getItem('library_settings');
+      let defaultLibraryName = null;
+      
+      if (librarySettings) {
+        try {
+          const settings = JSON.parse(librarySettings);
+          if (settings.defaultLibrary) {
+            defaultLibraryName = settings.defaultLibrary;
+          }
+        } catch (e) {
+          console.error('加载默认库设置失败', e);
+        }
+      }
+      
       // 设置默认库
-      if (libraries.value.length > 0) {
-        selectedLibrary.value = tagLibrary.getCurrentLibrary() || libraries.value[0];
+      // 优先级：1. 用户设置的默认库 2. 指定的特定库（如"所长常规法典库"） 3. 当前加载的库 4. 第一个可用库
+      if (defaultLibraryName && libraries.value.includes(defaultLibraryName)) {
+        selectedLibrary.value = defaultLibraryName;
+      } else if (libraries.value.includes('所长常规法典库')) {
+        selectedLibrary.value = '所长常规法典库';
+      } else {
+        selectedLibrary.value = tagLibrary.getCurrentLibraryName() || 
+                              (libraries.value.length > 0 ? libraries.value[0] : 'default');
+      }
+      
+      // 应用选择的库
+      if (selectedLibrary.value) {
+        handleLibraryChange();
       }
       
       // 监听标签库更新事件
@@ -382,7 +558,8 @@ export default defineComponent({
       showAnimation, 
       animationIntensity, 
       maxHistoryCount,
-      useMultiCategories
+      useMultiCategories,
+      ensureEachCategory
     ], () => {
       localStorage.setItem('drawer_settings', JSON.stringify({
         drawCount: drawCount.value,
@@ -391,7 +568,8 @@ export default defineComponent({
         showAnimation: showAnimation.value,
         animationIntensity: animationIntensity.value,
         maxHistoryCount: maxHistoryCount.value,
-        useMultiCategories: useMultiCategories.value
+        useMultiCategories: useMultiCategories.value,
+        ensureEachCategory: ensureEachCategory.value
       }));
     }, { deep: true });
     
@@ -409,8 +587,14 @@ export default defineComponent({
       showAnimation,
       animationIntensity,
       maxHistoryCount,
+      ensureEachCategory,
       categories,
       libraries,
+      filteredLibraries,
+      recentLibraries,
+      currentLibraryInfo,
+      isLibraryLoading,
+      isDrawing,
       drawTags,
       playDrawAnimation,
       testAnimation,
@@ -419,6 +603,7 @@ export default defineComponent({
       decreaseCount,
       toggleAdvanced,
       handleLibraryChange,
+      quickSelectLibrary,
       refreshData
     };
   }
@@ -433,6 +618,8 @@ export default defineComponent({
   display: flex;
   flex-direction: column;
   height: 100%;
+  min-height: 60vh;
+  max-height: 80vh;
   overflow: hidden;
 }
 
@@ -440,7 +627,7 @@ export default defineComponent({
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1.25rem 1.5rem;
+  padding: 0.85rem 1.25rem;
   border-bottom: 1px solid var(--border-color-light, rgba(0, 0, 0, 0.07));
   flex-shrink: 0;
 }
@@ -448,14 +635,14 @@ export default defineComponent({
 .form-content {
   flex: 1;
   overflow-y: auto;
-  padding: 1.5rem;
+  padding: 0.85rem 1.25rem;
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 0.85rem;
 }
 
 .section {
-  padding-bottom: 1rem;
+  padding-bottom: 0.65rem;
   border-bottom: 1px solid var(--border-color-light, rgba(0, 0, 0, 0.07));
 }
 
@@ -468,14 +655,14 @@ export default defineComponent({
   font-weight: 600;
   color: var(--text-color, #333);
   margin-top: 0;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.5rem;
 }
 
 .number-control {
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-top: 0.75rem;
+  margin-top: 0.5rem;
 }
 
 .control-btn {
@@ -540,6 +727,7 @@ export default defineComponent({
   background-color: var(--bg-color-light, #f9f9f9);
   border-radius: var(--border-radius-small, 8px);
   overflow: hidden;
+  margin-bottom: 0.5rem;
 }
 
 .advanced-header {
@@ -717,7 +905,13 @@ export default defineComponent({
   display: flex;
   gap: 1rem;
   margin-top: auto;
-  padding-top: 1rem;
+  padding-top: 0.75rem;
+  bottom: 0;
+  background-color: var(--panel-bg-color, #fff);
+  z-index: 10;
+  flex-shrink: 0;
+  position: sticky;
+  bottom: 0;
 }
 
 .primary-button, .secondary-button {
@@ -850,7 +1044,13 @@ export default defineComponent({
 /* 响应式适配 */
 @media (max-width: 768px) {
   .drawer-form {
-    padding: 1rem;
+    padding: 0;
+    min-height: auto;
+    max-height: none;
+  }
+  
+  .form-content {
+    padding: 0.75rem 1rem;
   }
   
   .number-control {
@@ -868,7 +1068,9 @@ export default defineComponent({
   }
   
   .button-group {
-    flex-direction: column;
+    position: static;
+    padding-top: 0.5rem;
+    margin-top: 0.5rem;
   }
 }
 
@@ -905,9 +1107,32 @@ export default defineComponent({
 }
 
 .multi-selector {
-  margin-top: 0.5rem;
+  margin-top: 0.75rem;
 }
 
+.balance-option {
+  margin-top: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  background-color: var(--bg-color-light, #f0f8ff);
+  border-radius: var(--border-radius-small, 8px);
+  border: 1px dashed var(--primary-color-light, #90caf9);
+}
+
+.balance-option input[type="checkbox"] {
+  width: 1.125rem;
+  height: 1.125rem;
+  margin: 0;
+}
+
+.balance-option label {
+  font-size: 0.9rem;
+  color: var(--primary-color, #2196F3);
+}
+
+/* 恢复toggle-button样式 */
 :global(.dark-mode) .toggle-button {
   color: var(--primary-color, #2196F3);
 }
@@ -921,12 +1146,22 @@ export default defineComponent({
   color: white;
 }
 
+/* 更新深色模式下的样式 */
+:global(.dark-mode) .balance-option {
+  background-color: var(--primary-color-darker, #0d47a1);
+  border-color: var(--primary-color, #2196F3);
+}
+
+:global(.dark-mode) .balance-option label {
+  color: var(--text-color-dark, #e0e0e0);
+}
+
 /* 修改标题样式，与抽签结果标题保持一致 */
 .panel-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1.25rem 1.5rem;
+  padding: 1rem 1.5rem;
   border-bottom: 1px solid var(--border-color-light, rgba(0, 0, 0, 0.07));
 }
 
@@ -955,5 +1190,169 @@ export default defineComponent({
 
 :global(.dark-mode) .panel-title {
   color: var(--text-color-dark, #f0f0f0);
+}
+
+/* 添加复选框提示样式 */
+.checkbox-hint {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--text-secondary, #777);
+  margin-top: 0.2rem;
+  margin-left: 1.5rem;
+  font-style: italic;
+}
+
+/* 最近使用的库快速选择样式 */
+.recent-libraries {
+  margin-top: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.recent-label {
+  font-size: 0.85rem;
+  color: var(--text-secondary, #777);
+}
+
+.recent-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.library-chip {
+  background-color: var(--bg-color-light, #f9f9f9);
+  border: 1px solid var(--border-color, #ddd);
+  border-radius: 1rem;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.85rem;
+  color: var(--text-color, #333);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.library-chip:hover {
+  background-color: var(--primary-color-lighter, #e3f2fd);
+  border-color: var(--primary-color-light, #90caf9);
+}
+
+.library-chip.active {
+  background-color: var(--primary-color, #2196F3);
+  color: white;
+  border-color: var(--primary-color, #2196F3);
+}
+
+/* 库信息显示样式 */
+.library-info {
+  margin-top: 0.75rem;
+  display: flex;
+  gap: 1rem;
+  padding: 0.5rem;
+  background-color: var(--bg-color-light, #f9f9f9);
+  border-radius: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.info-item {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.info-label {
+  color: var(--text-secondary, #777);
+}
+
+.info-value {
+  font-weight: 600;
+  color: var(--text-color, #333);
+}
+
+/* 加载指示器样式 */
+.loading-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  background-color: var(--bg-color-light, #f9f9f9);
+  border-radius: 0.5rem;
+  font-size: 0.9rem;
+  color: var(--text-color, #333);
+}
+
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 3px solid rgba(0, 0, 0, 0.1);
+  border-top-color: var(--primary-color, #2196F3);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* 深色模式适配 */
+:global(.dark-mode) .library-chip {
+  background-color: var(--bg-color-light-dark, #333);
+  border-color: var(--border-color-dark, #444);
+  color: var(--text-color-dark, #e0e0e0);
+}
+
+:global(.dark-mode) .library-chip:hover {
+  background-color: rgba(33, 150, 243, 0.15);
+  border-color: var(--primary-color-light, #90caf9);
+}
+
+:global(.dark-mode) .library-info {
+  background-color: var(--bg-color-light-dark, #333);
+}
+
+:global(.dark-mode) .info-label {
+  color: var(--text-secondary-dark, #aaa);
+}
+
+:global(.dark-mode) .info-value {
+  color: var(--text-color-dark, #e0e0e0);
+}
+
+:global(.dark-mode) .loading-indicator {
+  background-color: var(--bg-color-light-dark, #333);
+  color: var(--text-color-dark, #e0e0e0);
+}
+
+:global(.dark-mode) .spinner {
+  border-color: rgba(255, 255, 255, 0.1);
+  border-top-color: var(--primary-color, #2196F3);
+}
+
+.button-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  display: inline-block;
+  animation: spin 1s linear infinite;
+  margin-right: 0.5rem;
+}
+
+.primary-button:disabled {
+  background-color: var(--primary-color-light, #90caf9);
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none;
+  opacity: 0.7;
+}
+
+.secondary-button:disabled {
+  background-color: var(--bg-color-light, #f5f5f5);
+  color: var(--text-color-light, #999);
+  cursor: not-allowed;
+  opacity: 0.7;
 }
 </style> 

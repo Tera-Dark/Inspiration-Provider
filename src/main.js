@@ -18,16 +18,31 @@ import mitt from 'mitt';
 const emitter = mitt();
 console.log('事件总线(mitt)已创建');
 
-// 异步加载示例标签数据并初始化应用
+// 异步加载标签数据并初始化应用
 async function initApp() {
   try {
-    // 加载示例标签数据
+    // 加载标签数据
     const tagLoader = new TagLoader();
+    
+    // 加载所长常规法典作为默认库
+    const defaultTags = await tagLoader.loadDefaultTags();
+    console.log('默认标签数据加载完成');
+    
+    // 加载示例标签作为测试库
     const exampleTags = await tagLoader.loadExampleTags();
     console.log('示例标签数据加载完成');
     
-    // 初始化标签库和抽取器
-    const tagLibrary = new TagLibrary(exampleTags);
+    // 初始化标签库对象
+    const tagLibrary = new TagLibrary({});
+    
+    // 添加不同的库
+    tagLibrary.addLibrary('所长常规法典库', defaultTags);
+    tagLibrary.addLibrary('示例测试库', exampleTags);
+    
+    // 设置默认库
+    tagLibrary.setCurrentLibrary('所长常规法典库');
+    
+    // 初始化抽取器
     const tagDrawer = new TagDrawer(tagLibrary);
     console.log('标签库和抽取器已初始化');
     

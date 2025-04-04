@@ -194,19 +194,20 @@ export default defineComponent({
 .results-list {
   flex: 1;
   overflow-y: auto;
-  padding: 1.5rem;
+  padding: 1rem;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 0.6rem;
+  max-height: calc(80vh - 80px); /* 限制最大高度，减去标题栏高度 */
 }
 
 .result-item {
   background-color: var(--bg-color-light, #f8f9fa);
   border-radius: var(--border-radius-medium, 12px);
-  padding: 1rem;
+  padding: 0.75rem;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.3rem;
   animation: fadeInUp 0.6s ease forwards;
   opacity: 0;
   transform: translateY(20px);

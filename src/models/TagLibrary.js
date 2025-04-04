@@ -26,6 +26,12 @@ class TagLibrary {
     this.exampleTags = exampleTags;
     this.drawnHistory = [];
     
+    // 缓存机制
+    this.categoryCache = new Map(); // 用于缓存已加载的分类数据
+    this.libraryMetadata = {}; // 存储库的元数据（分类列表、标签计数等）
+    this.chunkedLibraries = new Set(); // 跟踪哪些库是使用分块存储的
+    this.pendingCategoryLoads = new Map(); // 跟踪进行中的分类加载Promise
+    
     // 初始化标签库
     this._init();
   }
@@ -35,8 +41,8 @@ class TagLibrary {
    * @private
    */
   _init() {
-    // 从本地存储加载标签库
-    this._loadFromStorage();
+    // 从本地存储加载标签库元数据
+    this._loadLibraryMetadata();
     
     // 如果没有库，使用示例标签库作为默认库
     if (Object.keys(this.libraries).length === 0) {
@@ -48,87 +54,553 @@ class TagLibrary {
   }
 
   /**
-   * 从本地存储加载库
+   * 加载库元数据 (轻量级操作，只加载库和分类的信息，不加载具体标签)
    * @private
    */
-  _loadFromStorage() {
-    // 使用try-catch包裹整个方法，提高错误处理的健壮性
+  _loadLibraryMetadata() {
     try {
-      const savedLibraries = localStorage.getItem(CONFIG.STORAGE_KEYS.TAG_LIBRARIES);
-      const savedLibraryName = localStorage.getItem(CONFIG.STORAGE_KEYS.CURRENT_LIBRARY_NAME);
-      const savedHistory = localStorage.getItem(CONFIG.STORAGE_KEYS.HISTORY);
+      // 检查是否使用分块存储模式
+      const storageMode = localStorage.getItem(`${CONFIG.STORAGE_KEYS.TAG_LIBRARIES}_mode`);
       
-      // 只有当数据存在时才进行解析，避免无谓的计算
-      if (savedLibraries) {
-        try {
-          const parsedLibraries = JSON.parse(savedLibraries);
-          // 验证解析出的数据是否为对象
-          if (parsedLibraries && typeof parsedLibraries === 'object') {
-            this.libraries = parsedLibraries;
-          } else {
-            console.error('解析标签库数据失败: 非有效对象');
-            // 如果解析出的不是有效对象，保持现有库不变而不是重置
-            if (Object.keys(this.libraries).length === 0) {
-              this.libraries = {};
-            }
-          }
-        } catch (e) {
-          console.error('解析标签库数据失败', e);
-          // 解析失败时保持现有库不变
-          if (Object.keys(this.libraries).length === 0) {
-            this.libraries = {};
-          }
-        }
-      }
-      
-      // 验证当前库名称
-      if (savedLibraryName && this.libraries[savedLibraryName]) {
-        this.currentLibraryName = savedLibraryName;
-      } else if (Object.keys(this.libraries).length > 0 && !this.libraries[this.currentLibraryName]) {
-        // 如果当前库名称无效但有其他库，设置为第一个可用库
-        this.currentLibraryName = Object.keys(this.libraries)[0];
-      }
-      
-      // 加载历史记录
-      if (savedHistory) {
-        try {
-          const parsedHistory = JSON.parse(savedHistory);
-          if (Array.isArray(parsedHistory)) {
-            this.drawnHistory = parsedHistory;
-          } else {
-            console.error('解析历史记录失败: 非数组格式');
-            this.drawnHistory = [];
-          }
-        } catch (e) {
-          console.error('解析历史记录失败', e);
-          this.drawnHistory = [];
-        }
+      if (storageMode === 'chunked') {
+        // 使用分块存储模式
+        console.log('使用分块存储模式加载标签库元数据');
+        this._loadChunkedLibraryMetadata();
+      } else {
+        // 使用常规存储模式
+        console.log('使用常规存储模式加载标签库数据');
+        this._loadFromStorage();
       }
     } catch (error) {
-      console.error('从本地存储加载数据时发生错误:', error);
-      // 发生致命错误时确保应用仍能运行
-      if (Object.keys(this.libraries).length === 0) {
-        this.libraries = {};
-      }
-      if (!this.drawnHistory) {
-        this.drawnHistory = [];
-      }
+      console.error('加载库元数据失败:', error);
+      // 恢复到默认状态
+      this.libraries = {};
+      this.libraries[CONFIG.DEFAULTS.LIBRARY_NAME] = this.exampleTags;
+      this.currentLibraryName = CONFIG.DEFAULTS.LIBRARY_NAME;
+      this.drawnHistory = [];
     }
   }
 
   /**
-   * 保存库到本地存储
+   * 从分块存储中加载库元数据
+   * @private
+   */
+  _loadChunkedLibraryMetadata() {
+    // 加载库名列表
+    const libNamesData = localStorage.getItem(`${CONFIG.STORAGE_KEYS.TAG_LIBRARIES}_libNames`);
+    if (!libNamesData) {
+      console.warn('未找到库名列表，切换回非分块模式');
+      return this._loadFromStorage();
+    }
+    
+    try {
+      // 解析库名列表
+      const { libraryNames } = JSON.parse(libNamesData);
+      
+      // 加载当前库名
+      const metaData = localStorage.getItem(`${CONFIG.STORAGE_KEYS.TAG_LIBRARIES}_meta`);
+      if (metaData) {
+        const { currentLibraryName } = JSON.parse(metaData);
+        this.currentLibraryName = currentLibraryName || CONFIG.DEFAULTS.LIBRARY_NAME;
+      } else {
+        this.currentLibraryName = CONFIG.DEFAULTS.LIBRARY_NAME;
+      }
+      
+      // 加载历史记录
+      const historyData = localStorage.getItem(`${CONFIG.STORAGE_KEYS.TAG_LIBRARIES}_history`);
+      if (historyData) {
+        const { drawnHistory } = JSON.parse(historyData);
+        this.drawnHistory = drawnHistory || [];
+      } else {
+        this.drawnHistory = [];
+      }
+      
+      // 初始化库元数据
+      for (const libName of libraryNames) {
+        // 使这些库成为"懒加载"占位符
+        this.libraries[libName] = null; // null 表示未加载的库
+        this.chunkedLibraries.add(libName);
+        
+        // 加载各库的分类列表元数据
+        this._loadLibraryCategoriesMetadata(libName);
+      }
+      
+      // 确保默认库存在
+      if (!this.libraries[CONFIG.DEFAULTS.LIBRARY_NAME]) {
+        this.libraries[CONFIG.DEFAULTS.LIBRARY_NAME] = this.exampleTags;
+      }
+      
+      // 检查当前库是否有效
+      if (!this.libraries[this.currentLibraryName]) {
+        this.currentLibraryName = CONFIG.DEFAULTS.LIBRARY_NAME;
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('解析分块存储元数据失败:', error);
+      return this._loadFromStorage(); // 回退到常规加载
+    }
+  }
+  
+  /**
+   * 加载库的分类列表元数据
+   * @private
+   * @param {string} libName - 库名称
+   */
+  _loadLibraryCategoriesMetadata(libName) {
+    try {
+      // 加载分类列表
+      const categoriesData = localStorage.getItem(`${CONFIG.STORAGE_KEYS.TAG_LIBRARIES}_lib_${libName}_categories`);
+      if (categoriesData) {
+        const { categories } = JSON.parse(categoriesData);
+        
+        // 存储分类元数据
+        if (!this.libraryMetadata[libName]) {
+          this.libraryMetadata[libName] = {};
+        }
+        this.libraryMetadata[libName].categories = categories;
+        
+        // 为每个分类创建懒加载占位符
+        if (this.libraries[libName] === null) {
+          this.libraries[libName] = {}; // 初始化为空对象
+          
+          // 为每个分类创建懒加载占位符
+          for (const category of categories) {
+            // 设置为非数组，表示尚未加载
+            this.libraries[libName][category] = null;
+          }
+        }
+      }
+    } catch (error) {
+      console.error(`加载库 "${libName}" 分类元数据失败:`, error);
+    }
+  }
+
+  /**
+   * 按需加载分类数据
+   * @private
+   * @param {string} libName - 库名称
+   * @param {string} category - 分类名称
+   * @returns {Promise<Array>} 加载完成的分类数据
+   */
+  async _loadCategoryOnDemand(libName, category) {
+    // 检查缓存
+    const cacheKey = `${libName}:${category}`;
+    if (this.categoryCache.has(cacheKey)) {
+      return this.categoryCache.get(cacheKey);
+    }
+    
+    // 检查是否有正在进行的加载
+    if (this.pendingCategoryLoads.has(cacheKey)) {
+      return this.pendingCategoryLoads.get(cacheKey);
+    }
+    
+    // 创建加载Promise
+    const loadPromise = new Promise((resolve, reject) => {
+      try {
+        if (this.chunkedLibraries.has(libName)) {
+          // 从分块存储加载
+          const categoryData = localStorage.getItem(`${CONFIG.STORAGE_KEYS.TAG_LIBRARIES}_lib_${libName}_cat_${category}`);
+          if (categoryData) {
+            const { tags } = JSON.parse(categoryData);
+            
+            // 更新内存中的数据
+            if (this.libraries[libName]) {
+              this.libraries[libName][category] = tags;
+            }
+            
+            // 更新缓存
+            this.categoryCache.set(cacheKey, tags);
+            
+            resolve(tags);
+          } else {
+            // 找不到数据，返回空数组
+            const emptyTags = [];
+            this.categoryCache.set(cacheKey, emptyTags);
+            resolve(emptyTags);
+          }
+        } else {
+          // 库已经完全加载在内存中
+          if (this.libraries[libName] && this.libraries[libName][category]) {
+            const tags = this.libraries[libName][category];
+            this.categoryCache.set(cacheKey, tags);
+            resolve(tags);
+          } else {
+            // 找不到数据，返回空数组
+            const emptyTags = [];
+            this.categoryCache.set(cacheKey, emptyTags);
+            resolve(emptyTags);
+          }
+        }
+      } catch (error) {
+        console.error(`加载分类 "${category}" 失败:`, error);
+        reject(error);
+      } finally {
+        // 清除pending状态
+        this.pendingCategoryLoads.delete(cacheKey);
+      }
+    });
+    
+    // 记录pending状态
+    this.pendingCategoryLoads.set(cacheKey, loadPromise);
+    
+    return loadPromise;
+  }
+
+  /**
+   * 获取指定库中的分类列表
+   * @param {string} libraryName - 库名称
+   * @returns {Array} 分类列表
+   */
+  getCategories(libraryName = null) {
+    const libName = libraryName || this.currentLibraryName;
+    
+    // 检查是否有元数据缓存
+    if (this.libraryMetadata[libName] && this.libraryMetadata[libName].categories) {
+      return [...this.libraryMetadata[libName].categories];
+    }
+    
+    // 如果没有元数据，则从库对象中获取
+    const lib = this.libraries[libName];
+    if (lib) {
+      if (lib === null) {
+        // 库尚未加载
+        return [];
+      }
+      return Object.keys(lib);
+    }
+    
+    return [];
+  }
+
+  /**
+   * 获取指定分类的标签数据
+   * @param {string} category - 分类名称
+   * @param {string} libraryName - 库名称，默认为当前库
+   * @returns {Promise<Array>} 标签数据
+   */
+  async getCategoryTags(category, libraryName = null) {
+    const libName = libraryName || this.currentLibraryName;
+    
+    // 检查库是否存在
+    if (!this.libraries[libName]) {
+      return [];
+    }
+    
+    // 检查分类是否存在
+    if (this.libraries[libName] && 
+        typeof this.libraries[libName] === 'object' && 
+        category in this.libraries[libName]) {
+      
+      // 检查是否需要加载
+      if (this.libraries[libName][category] === null || 
+          (this.chunkedLibraries.has(libName) && !Array.isArray(this.libraries[libName][category]))) {
+        // 需要加载该分类
+        try {
+          const tags = await this._loadCategoryOnDemand(libName, category);
+          return tags || [];
+        } catch (error) {
+          console.error(`获取分类 "${category}" 的标签失败:`, error);
+          return [];
+        }
+      } else {
+        // 已经加载在内存中
+        return this.libraries[libName][category] || [];
+      }
+    }
+    
+    return [];
+  }
+
+  /**
+   * 预加载库的所有分类（在后台）
+   * @param {string} libraryName - 库名称，默认为当前库
+   * @returns {Promise<void>}
+   */
+  async preloadLibrary(libraryName = null) {
+    const libName = libraryName || this.currentLibraryName;
+    
+    // 检查库是否存在
+    if (!this.libraries[libName]) {
+      return;
+    }
+    
+    // 获取分类列表
+    const categories = this.getCategories(libName);
+    
+    // 分批加载所有分类，避免一次加载太多导致界面卡顿
+    const batchSize = 3; // 每批加载的分类数量
+    
+    for (let i = 0; i < categories.length; i += batchSize) {
+      const batch = categories.slice(i, i + batchSize);
+      
+      // 并行加载一批分类
+      await Promise.all(batch.map(category => 
+        this._loadCategoryOnDemand(libName, category)
+      ));
+      
+      // 如果不是最后一批，添加小延迟让UI有机会响应
+      if (i + batchSize < categories.length) {
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
+    }
+    
+    console.log(`库 "${libName}" 预加载完成`);
+  }
+
+  /**
+   * 设置当前库
+   * @param {string} libraryName - 库名称
+   * @returns {Promise<boolean>} 是否设置成功
+   */
+  async setCurrentLibrary(libraryName) {
+    if (this.libraries[libraryName]) {
+      this.currentLibraryName = libraryName;
+      
+      // 如果是分块存储的库，启动后台预加载
+      if (this.chunkedLibraries.has(libraryName)) {
+        // 先确保分类元数据已加载
+        this._loadLibraryCategoriesMetadata(libraryName);
+        
+        // 在后台开始预加载
+        setTimeout(() => {
+          this.preloadLibrary(libraryName)
+            .catch(error => console.error(`预加载库 "${libraryName}" 失败:`, error));
+        }, 100);
+      }
+      
+      this._saveToStorage();
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * 从本地存储加载数据
+   * @private
+   */
+  _loadFromStorage() {
+    try {
+      // 尝试从localStorage加载数据
+      const storageData = localStorage.getItem(CONFIG.STORAGE_KEYS.TAG_LIBRARIES);
+      if (storageData) {
+        console.time('从存储加载标签库数据');
+        const parsedData = JSON.parse(storageData);
+        this.libraries = parsedData.libraries || {};
+        this.currentLibraryName = parsedData.currentLibraryName || CONFIG.DEFAULTS.LIBRARY_NAME;
+        this.drawnHistory = parsedData.drawnHistory || [];
+        
+        // 确保默认库存在
+        if (!this.libraries[CONFIG.DEFAULTS.LIBRARY_NAME]) {
+          this.libraries[CONFIG.DEFAULTS.LIBRARY_NAME] = this.exampleTags;
+        }
+        
+        // 记录加载的库和标签数量（诊断信息）
+        const libraryCount = Object.keys(this.libraries).length;
+        let totalTagCount = 0;
+        for (const libName in this.libraries) {
+          const lib = this.libraries[libName];
+          for (const category in lib) {
+            if (Array.isArray(lib[category])) {
+              totalTagCount += lib[category].length;
+            }
+          }
+        }
+        
+        console.log(`从存储加载了 ${libraryCount} 个标签库，共 ${totalTagCount} 个标签`);
+        console.timeEnd('从存储加载标签库数据');
+        
+        // 检查当前选择的库是否存在，如果不存在则切换到默认库
+        if (!this.libraries[this.currentLibraryName]) {
+          this.currentLibraryName = CONFIG.DEFAULTS.LIBRARY_NAME;
+        }
+        
+        return true;
+      }
+    } catch (error) {
+      console.error('从存储加载标签库数据失败:', error);
+      // 发出加载失败的通知
+      if (typeof window !== 'undefined' && window.dispatchEvent) {
+        window.dispatchEvent(new CustomEvent('tagLibrary-load-error', {
+          detail: { error: error.message }
+        }));
+      }
+    }
+    
+    // 如果加载失败或没有存储数据，使用默认库
+    this.libraries = {};
+    this.libraries[CONFIG.DEFAULTS.LIBRARY_NAME] = this.exampleTags;
+    this.currentLibraryName = CONFIG.DEFAULTS.LIBRARY_NAME;
+    this.drawnHistory = [];
+    
+    return false;
+  }
+
+  /**
+   * 保存数据到本地存储
    * @private
    */
   _saveToStorage() {
-    localStorage.setItem(CONFIG.STORAGE_KEYS.TAG_LIBRARIES, JSON.stringify(this.libraries));
-    localStorage.setItem(CONFIG.STORAGE_KEYS.CURRENT_LIBRARY_NAME, this.currentLibraryName);
-    localStorage.setItem(CONFIG.STORAGE_KEYS.HISTORY, JSON.stringify(this.drawnHistory));
-    
-    // 触发全局标签库更新事件，通知所有组件数据已变更
-    if (typeof window !== 'undefined' && window.dispatchEvent) {
-      window.dispatchEvent(new CustomEvent('tagLibraryUpdated'));
+    try {
+      console.time('保存标签库数据到存储');
+      
+      // 使用批处理方式保存数据，减少浏览器渲染阻塞
+      const data = {
+        libraries: this.libraries,
+        currentLibraryName: this.currentLibraryName,
+        drawnHistory: this.drawnHistory
+      };
+      
+      // 记录最近使用的库到单独的存储项
+      this._updateRecentLibraries(this.currentLibraryName);
+      
+      // 检查数据大小，如果过大则进行优化
+      const jsonData = JSON.stringify(data);
+      const dataSize = new Blob([jsonData]).size / (1024 * 1024); // 转换为MB
+      
+      if (dataSize > 4) { // 如果数据超过4MB，分块存储
+        console.warn(`标签库数据较大 (${dataSize.toFixed(2)}MB)，正在尝试优化存储...`);
+        this._optimizeStorage(data);
+      } else {
+        localStorage.setItem(CONFIG.STORAGE_KEYS.TAG_LIBRARIES, jsonData);
+      }
+      
+      console.timeEnd('保存标签库数据到存储');
+      return true;
+    } catch (error) {
+      console.error('保存标签库数据到存储失败:', error);
+      
+      // 如果是配额错误，尝试优化存储
+      if (error.name === 'QuotaExceededError' || error.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
+        console.warn('存储空间不足，尝试优化存储...');
+        try {
+          const data = {
+            libraries: this.libraries,
+            currentLibraryName: this.currentLibraryName,
+            drawnHistory: this.drawnHistory
+          };
+          this._optimizeStorage(data);
+          return true;
+        } catch (optimizeError) {
+          console.error('存储优化失败:', optimizeError);
+        }
+      }
+      
+      // 发出存储失败的通知
+      if (typeof window !== 'undefined' && window.dispatchEvent) {
+        window.dispatchEvent(new CustomEvent('tagLibrary-save-error', {
+          detail: { error: error.message }
+        }));
+      }
+      
+      return false;
     }
+  }
+  
+  /**
+   * 优化存储方法，将大型数据拆分为更小的块
+   * @private
+   * @param {Object} data - 要存储的数据对象
+   */
+  _optimizeStorage(data) {
+    // 分离历史记录和库数据，单独存储
+    localStorage.setItem(`${CONFIG.STORAGE_KEYS.TAG_LIBRARIES}_history`, JSON.stringify({ drawnHistory: data.drawnHistory }));
+    localStorage.setItem(`${CONFIG.STORAGE_KEYS.TAG_LIBRARIES}_meta`, JSON.stringify({ 
+      currentLibraryName: data.currentLibraryName 
+    }));
+    
+    // 将每个库单独存储
+    for (const libName in data.libraries) {
+      try {
+        localStorage.setItem(`${CONFIG.STORAGE_KEYS.TAG_LIBRARIES}_lib_${libName}`, 
+          JSON.stringify({ library: data.libraries[libName] }));
+      } catch (error) {
+        console.error(`存储库 "${libName}" 失败:`, error);
+        // 如果单个库太大，尝试分类存储
+        if (error.name === 'QuotaExceededError' || error.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
+          this._storeLibraryInChunks(libName, data.libraries[libName]);
+        }
+      }
+    }
+    
+    // 保存库名列表，用于加载时重建
+    localStorage.setItem(`${CONFIG.STORAGE_KEYS.TAG_LIBRARIES}_libNames`, 
+      JSON.stringify({ libraryNames: Object.keys(data.libraries) }));
+    
+    // 标记使用了分块存储模式
+    localStorage.setItem(`${CONFIG.STORAGE_KEYS.TAG_LIBRARIES}_mode`, 'chunked');
+  }
+  
+  /**
+   * 将单个标签库按分类拆分存储
+   * @private
+   * @param {string} libName - 库名称
+   * @param {Object} library - 库对象
+   */
+  _storeLibraryInChunks(libName, library) {
+    // 存储分类列表
+    const categories = Object.keys(library);
+    localStorage.setItem(`${CONFIG.STORAGE_KEYS.TAG_LIBRARIES}_lib_${libName}_categories`, 
+      JSON.stringify({ categories }));
+    
+    // 逐个存储分类
+    for (const category of categories) {
+      try {
+        localStorage.setItem(`${CONFIG.STORAGE_KEYS.TAG_LIBRARIES}_lib_${libName}_cat_${category}`, 
+          JSON.stringify({ tags: library[category] }));
+      } catch (error) {
+        console.error(`存储分类 "${category}" 失败:`, error);
+      }
+    }
+  }
+  
+  /**
+   * 更新最近使用的库记录
+   * @private
+   * @param {string} libraryName - 库名称
+   */
+  _updateRecentLibraries(libraryName) {
+    try {
+      // 获取最近使用的库列表
+      let recentLibraries = [];
+      const recentData = localStorage.getItem('recent_libraries');
+      if (recentData) {
+        recentLibraries = JSON.parse(recentData);
+      }
+      
+      // 更新列表（将当前库放在最前面）
+      recentLibraries = recentLibraries.filter(lib => lib !== libraryName);
+      recentLibraries.unshift(libraryName);
+      
+      // 限制列表长度
+      if (recentLibraries.length > 5) {
+        recentLibraries = recentLibraries.slice(0, 5);
+      }
+      
+      // 保存更新后的列表
+      localStorage.setItem('recent_libraries', JSON.stringify(recentLibraries));
+    } catch (error) {
+      console.error('更新最近使用的库记录失败:', error);
+    }
+  }
+  
+  /**
+   * 获取最近使用的库列表
+   * @returns {Array} 最近使用的库名称数组
+   */
+  getRecentLibraries() {
+    try {
+      const recentData = localStorage.getItem('recent_libraries');
+      if (recentData) {
+        const recentLibraries = JSON.parse(recentData);
+        // 过滤掉不存在的库
+        return recentLibraries.filter(libName => this.libraries[libName]);
+      }
+    } catch (error) {
+      console.error('获取最近使用的库记录失败:', error);
+    }
+    
+    return [];
   }
 
   /**
@@ -145,20 +617,6 @@ class TagLibrary {
    */
   getCurrentLibraryName() {
     return this.currentLibraryName;
-  }
-
-  /**
-   * 设置当前库
-   * @param {string} libraryName - 库名称
-   * @returns {boolean} 是否设置成功
-   */
-  setCurrentLibrary(libraryName) {
-    if (this.libraries[libraryName]) {
-      this.currentLibraryName = libraryName;
-      this._saveToStorage();
-      return true;
-    }
-    return false;
   }
 
   /**

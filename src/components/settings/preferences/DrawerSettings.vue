@@ -40,6 +40,18 @@
         </div>
       </div>
       
+      <!-- 确保每个分类至少抽取一个标签 -->
+      <div class="settings-item">
+        <div class="setting-label">多分类模式下确保平衡</div>
+        <div class="setting-control">
+          <label class="toggle-switch">
+            <input type="checkbox" v-model="ensureEachCategory" @change="saveDrawSettings">
+            <span class="toggle-slider"></span>
+          </label>
+          <div class="setting-description">在多分类模式下，确保每个选定的分类至少抽取一个标签</div>
+        </div>
+      </div>
+      
       <!-- 动画效果 -->
       <div class="settings-item">
         <div class="setting-label">抽签动画</div>
@@ -151,6 +163,7 @@ export default defineComponent({
     const useWeights = ref(false);
     const showAnimation = ref(true);
     const animationIntensity = ref(60);
+    const ensureEachCategory = ref(false);
     
     // 历史记录设置
     const autoSaveHistory = ref(true);
@@ -201,7 +214,8 @@ export default defineComponent({
         noDuplicates: noDuplicates.value,
         useWeights: useWeights.value,
         showAnimation: showAnimation.value,
-        animationIntensity: animationIntensity.value
+        animationIntensity: animationIntensity.value,
+        ensureEachCategory: ensureEachCategory.value
       }));
       
       emitter.emit('notification', {
@@ -257,6 +271,7 @@ export default defineComponent({
           useWeights.value = settings.useWeights || false;
           showAnimation.value = settings.showAnimation || true;
           animationIntensity.value = settings.animationIntensity || 60;
+          ensureEachCategory.value = settings.ensureEachCategory || false;
         } catch (error) {
           console.error('加载抽签设置失败:', error);
         }
@@ -317,6 +332,7 @@ export default defineComponent({
       useWeights,
       showAnimation,
       animationIntensity,
+      ensureEachCategory,
       increaseDefaultDrawCount,
       decreaseDefaultDrawCount,
       saveDrawSettings,

@@ -19,6 +19,7 @@ export function useDrawer() {
   const showAnimation = ref(false);
   const animationIntensity = ref(60);
   const maxHistoryCount = ref(20);
+  const ensureEachCategory = ref(false);
   
   // 抽签结果
   const drawnTags = ref([]);
@@ -29,12 +30,35 @@ export function useDrawer() {
     if (userSettings) {
       try {
         const settings = JSON.parse(userSettings);
-        drawCount.value = settings.drawCount || 3;
-        noDuplicates.value = settings.noDuplicates !== false;
-        useWeights.value = settings.useWeights || false;
-        showAnimation.value = settings.showAnimation || false;
-        animationIntensity.value = settings.animationIntensity || 60;
-        maxHistoryCount.value = settings.maxHistoryCount || 20;
+        
+        // 应用设置
+        if (typeof settings.defaultDrawCount === 'number') {
+          drawCount.value = settings.defaultDrawCount;
+        }
+        
+        if (typeof settings.noDuplicates === 'boolean') {
+          noDuplicates.value = settings.noDuplicates;
+        }
+        
+        if (typeof settings.useWeights === 'boolean') {
+          useWeights.value = settings.useWeights;
+        }
+        
+        if (typeof settings.showAnimation === 'boolean') {
+          showAnimation.value = settings.showAnimation;
+        }
+        
+        if (typeof settings.animationIntensity === 'number') {
+          animationIntensity.value = settings.animationIntensity;
+        }
+        
+        if (typeof settings.maxHistoryCount === 'number') {
+          maxHistoryCount.value = settings.maxHistoryCount;
+        }
+        
+        if (typeof settings.ensureEachCategory === 'boolean') {
+          ensureEachCategory.value = settings.ensureEachCategory;
+        }
       } catch (e) {
         console.error('加载抽签设置失败', e);
       }
@@ -55,7 +79,8 @@ export function useDrawer() {
       useWeights: useWeights.value,
       showAnimation: showAnimation.value,
       animationIntensity: animationIntensity.value,
-      maxHistoryCount: maxHistoryCount.value
+      maxHistoryCount: maxHistoryCount.value,
+      ensureEachCategory: ensureEachCategory.value
     }));
   };
   
@@ -77,7 +102,8 @@ export function useDrawer() {
         useWeights: useWeights.value,
         showAnimation: showAnimation.value,
         animationIntensity: animationIntensity.value,
-        maxHistoryCount: maxHistoryCount.value
+        maxHistoryCount: maxHistoryCount.value,
+        ensureEachCategory: ensureEachCategory.value
       };
       
       // 执行抽取
@@ -198,6 +224,12 @@ export function useDrawer() {
     selectedCategory.value = 'all';
   };
   
+  // 刷新数据
+  const refreshData = () => {
+    // 刷新分类和库数据
+    emitter.emit('library-data-refresh');
+  };
+  
   return {
     // 状态
     drawCount,
@@ -209,6 +241,7 @@ export function useDrawer() {
     showAnimation,
     animationIntensity,
     maxHistoryCount,
+    ensureEachCategory,
     drawnTags,
     
     // 方法
@@ -223,6 +256,7 @@ export function useDrawer() {
     copyResultTags,
     getCategories,
     getLibraries,
-    handleLibraryChange
+    handleLibraryChange,
+    refreshData
   };
 } 

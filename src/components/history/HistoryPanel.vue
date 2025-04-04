@@ -232,9 +232,9 @@ export default defineComponent({
 
 <style scoped>
 .history-panel {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
+  height: auto;
+  display: block;
+  overflow: visible;
 }
 
 .empty-history {
@@ -270,24 +270,22 @@ export default defineComponent({
 }
 
 .history-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
+  display: block;
 }
 
 .history-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.75rem 1.25rem;
-  background-color: var(--bg-color-light, #f8f9fa);
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border-color-light, #eee);
+  flex-shrink: 0;
 }
 
 .history-header h3 {
+  margin: 0;
   font-size: 1rem;
   font-weight: 600;
-  margin: 0;
-  color: var(--text-color, #333);
 }
 
 .header-actions {
@@ -320,21 +318,24 @@ export default defineComponent({
 }
 
 .history-list {
-  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 0.75rem;
+  padding: 0.75rem;
   overflow-y: auto;
-  padding: 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
+  max-height: 80vh;
 }
 
 .history-item {
-  background-color: var(--bg-color-light, #f8f9fa);
-  border-radius: var(--border-radius-small, 8px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-  overflow: hidden;
-  transition: all 0.2s;
-  border-left: 3px solid var(--accent-color, #42b883);
+  border: 1px solid var(--border-color-light, #eee);
+  border-radius: 8px;
+  padding: 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  background-color: var(--bg-color-light, #f8f8f8);
+  transition: transform 0.2s, box-shadow 0.2s;
+  height: fit-content;
 }
 
 .history-item:hover {
@@ -346,34 +347,31 @@ export default defineComponent({
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.75rem 1rem;
-  background-color: var(--bg-color, #f0f0f0);
-  border-bottom: 1px solid var(--border-color-light, rgba(0, 0, 0, 0.05));
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
 .history-time {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   color: var(--text-color-light, #666);
-  font-weight: 500;
 }
 
 .history-actions {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.4rem;
+  flex-wrap: wrap;
 }
 
 .action-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 0.35rem;
-  border-radius: 4px;
-  font-size: 0.85rem;
-  color: var(--text-color-light, #666);
+  padding: 0.25rem 0.5rem;
+  font-size: 0.8rem;
   display: flex;
   align-items: center;
-  gap: 0.3rem;
-  transition: all 0.2s;
+  gap: 0.25rem;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s;
 }
 
 .action-btn:hover {
@@ -537,12 +535,18 @@ export default defineComponent({
 /* 响应式设计 */
 @media (max-width: 768px) {
   .history-header {
-    padding: 0.5rem 1rem;
+    padding: 0.5rem 0.75rem;
   }
   
   .history-list {
-    padding: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    padding: 0.5rem;
     gap: 0.75rem;
+  }
+  
+  .history-item {
+    padding: 0.75rem;
   }
   
   .btn-text {
@@ -555,6 +559,14 @@ export default defineComponent({
   
   .tag-content {
     font-size: 0.95rem;
+  }
+}
+
+/* 更大屏幕下的历史记录布局优化 */
+@media (min-width: 992px) {
+  .history-list {
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 1rem;
   }
 }
 </style> 

@@ -55,12 +55,16 @@
         
         <!-- 设置页面 -->
         <div v-show="activeTabIndex === 2" class="page-content">
-          <settings-panel />
+          <div class="settings-page-content">
+            <settings-panel />
+          </div>
         </div>
         
         <!-- 关于页面 -->
         <div v-show="activeTabIndex === 3" class="page-content">
-          <info-panel />
+          <div class="about-page-content">
+            <info-panel />
+          </div>
         </div>
       </div>
     </div>
@@ -257,12 +261,16 @@ export default defineComponent({
 .right-content {
   flex: 1;
   padding: 20px;
-  overflow-y: auto;
+  overflow-y: auto; /* 保持右侧内容区可滚动 */
   background-color: var(--bg-color, #fff);
+  display: flex;
+  flex-direction: column;
 }
 
 .page-content {
-  height: 100%;
+  height: auto; /* 改为自适应高度，不限制页面高度 */
+  display: flex;
+  flex-direction: column;
 }
 
 /* 标签页 */
@@ -303,8 +311,11 @@ export default defineComponent({
 
 /* 抽签工具页面样式 */
 .draw-tool-container {
-  height: 65%;
+  height: auto;
+  min-height: 450px;
+  max-height: none; /* 取消最大高度限制 */
   margin-bottom: 1.5rem;
+  flex-shrink: 0; 
 }
 
 .draw-settings-panel {
@@ -324,7 +335,7 @@ export default defineComponent({
 }
 
 .section-header {
-  padding: 15px 20px;
+  padding: 12px 20px;
   border-bottom: 1px solid var(--border-color, #eee);
   display: flex;
   justify-content: space-between;
@@ -382,21 +393,26 @@ export default defineComponent({
 
 /* 历史记录区域 */
 .history-section {
-  margin-top: 20px;
-  height: 35%;
-  min-height: 250px;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
+  display: block;
+  margin-top: 1.5rem;
+  height: auto;
+  min-height: auto;
+  overflow: visible;
   background-color: var(--panel-bg-color, #fff);
   border-radius: var(--border-radius-medium, 8px);
   box-shadow: var(--shadow-small, 0 2px 8px rgba(0, 0, 0, 0.1));
+  margin-bottom: 1.5rem;
+  max-height: 90vh; /* 限制最大高度为视窗高度的90% */
+  overflow-y: auto; /* 超出时显示滚动条 */
 }
 
 .history-content {
-  flex: 1;
-  overflow: auto;
-  padding: 0;
+  display: block;
+  width: 100%;
+  height: auto;
+  min-height: auto;
+  max-height: none;
+  overflow: visible;
 }
 
 /* 抽签结果样式 */
@@ -594,11 +610,7 @@ export default defineComponent({
   }
   
   .draw-tool-container {
-    height: 65%;
-  }
-  
-  .history-section {
-    height: 30%;
+    max-height: none; /* 移动端不限制最大高度 */
   }
   
   .section-header {
@@ -608,5 +620,24 @@ export default defineComponent({
   .panel-title {
     font-size: 1.1rem;
   }
+}
+
+/* 设置页面和关于页面公共样式 */
+.settings-page-content,
+.about-page-content {
+  height: auto;
+  overflow-y: auto; /* 允许内容滚动 */
+  padding: 1.5rem;
+  background-color: var(--panel-bg-color, #fff);
+  border-radius: var(--border-radius-medium, 12px);
+  box-shadow: var(--shadow-small, 0 2px 8px rgba(0, 0, 0, 0.1));
+  margin-bottom: 1.5rem;
+}
+
+/* 深色模式适配 */
+.dark-mode .settings-page-content,
+.dark-mode .about-page-content {
+  background-color: var(--panel-bg-color-dark, #1f1f1f);
+  box-shadow: var(--shadow-medium-dark, 0 4px 16px rgba(0, 0, 0, 0.2));
 }
 </style> 

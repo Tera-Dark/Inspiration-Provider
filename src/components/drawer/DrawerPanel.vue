@@ -39,24 +39,31 @@ export default defineComponent({
 <style scoped>
 .drawer-panel {
   display: flex;
-  height: 100%;
+  height: auto;
+  min-height: 60vh;
+  max-height: 80vh;
   gap: 2rem;
   padding: 1.5rem;
   background-color: var(--bg-color, #f8f8f8);
   border-radius: var(--border-radius-large, 16px);
+  overflow: hidden;
 }
 
 .drawer-settings-panel {
   flex: 1;
   display: flex;
   flex-direction: column;
+  min-width: 300px;
+  max-width: 420px;
+  overflow: visible;
 }
 
 .drawer-results-panel {
   flex: 1;
   display: flex;
   flex-direction: column;
-  min-width: 0; /* 防止内容溢出 */
+  min-width: 0;
+  overflow: visible;
 }
 
 /* 深色模式 */
@@ -67,6 +74,7 @@ export default defineComponent({
 /* 响应式设计 */
 @media (max-width: 992px) {
   .drawer-settings-panel {
+    min-width: 280px;
     max-width: 320px;
   }
 }
@@ -76,19 +84,22 @@ export default defineComponent({
     flex-direction: column;
     padding: 1rem;
     gap: 1.5rem;
+    min-height: 50vh;
+    max-height: none;
   }
   
   .drawer-settings-panel {
     flex: none;
     max-width: none;
     width: 100%;
-    margin-bottom: 1.5rem;
+    margin-bottom: 1rem;
+    min-height: auto;
   }
   
   .drawer-results-panel {
     flex: none;
     width: 100%;
-    min-height: 350px;
+    min-height: 300px;
   }
 }
 </style> 
