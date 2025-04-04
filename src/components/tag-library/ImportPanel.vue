@@ -34,11 +34,12 @@
           <label for="extend-library">选择要扩展的库</label>
           <select 
             id="extend-library" 
-            v-model="extendLibraryName" 
+            v-model="selectedLibraryName" 
             class="form-control"
           >
+            <option value="">-- 选择库 --</option>
             <option v-for="lib in libraries" :key="lib.name" :value="lib.name">
-              {{ lib.name }}
+              {{ lib.name }} ({{ lib.count }} 个标签)
             </option>
           </select>
         </div>
@@ -52,9 +53,9 @@
             @change="handlePresetChange"
           >
             <option value="">-- 选择预设JSON --</option>
-            <option value="default">常规法典</option>
-            <option value="example">示例标签</option>
+            <option value="default">所长常规法典</option>
           </select>
+          <div class="info-text" v-if="selectedPresetJson">已选择预设: {{ getPresetName() }}</div>
         </div>
         
         <div class="form-group">
@@ -62,14 +63,20 @@
             <span>选择JSON文件</span>
             <input type="file" id="import-file" @change="handleFileSelect" accept=".json" />
           </label>
-          <div v-if="fileSelected" class="selected-file">
-            已选择文件{{ selectedPresetJson ? ` (${getPresetName()})` : '' }}
+          <div v-if="fileSelected && !selectedPresetJson" class="selected-file">
+            已选择文件
           </div>
         </div>
         
         <div class="action-group">
-          <button @click="importLibrary" class="btn primary-btn" :disabled="!fileSelected && !selectedPresetJson">导入</button>
+          <div v-if="importMode === 'new'" class="import-action">
+            <button @click="importNewLibrary" class="btn primary-btn" :disabled="!fileSelected && !selectedPresetJson">创建新库</button>
+          </div>
+          <div v-else class="import-action">
+            <button @click="extendExistingLibrary" class="btn primary-btn" :disabled="!fileSelected && !selectedPresetJson">扩展现有库</button>
+          </div>
           <button @click="clearImport" class="btn secondary-btn">清空</button>
+          <button @click="debugCheckFileContent" class="btn debug-btn">调试检查</button>
         </div>
       </div>
     </div>
@@ -214,7 +221,7 @@ export default defineComponent({
     // 导入相关状态
     const importMode = ref('new');
     const newLibraryName = ref('');
-    const extendLibraryName = ref('');
+    const selectedLibraryName = ref('');
     const fileContent = ref(null);
     const fileSelected = ref(false);
     
@@ -235,88 +242,222 @@ export default defineComponent({
     // 预设JSON相关状态
     const selectedPresetJson = ref('');
     
+    // 添加一个变量用于存储预设JSON的内容
+    const presetFileContent = ref(null);
+    
     // 获取预设名称
     const getPresetName = () => {
       if (selectedPresetJson.value === 'default') {
-        return '常规法典';
-      } else if (selectedPresetJson.value === 'example') {
-        return '示例标签';
+        return '所长常规法典';
       }
       return '';
+    };
+    
+    // 添加一个直接使用预设数据的功能
+    const usePresetData = (preset) => {
+      try {
+        console.log('使用内置预设数据:', preset);
+        
+        // 我们现在只使用所长常规法典，不再需要内置预设数据
+        return false;
+      } catch (error) {
+        console.error('加载内置预设失败:', error);
+        showNotification('error', '加载内置预设失败');
+        return false;
+      }
     };
     
     // 处理预设JSON选择变更
     const handlePresetChange = async () => {
       if (!selectedPresetJson.value) {
-        fileContent.value = null;
-        fileSelected.value = false;
+        presetFileContent.value = null;
         return;
       }
       
       try {
+        // 先尝试使用内置预设数据
+        if (usePresetData(selectedPresetJson.value)) {
+          console.log('使用内置预设数据成功');
+          return;
+        }
+        
         // 根据选择加载不同的JSON文件
         let jsonUrl = '';
         if (selectedPresetJson.value === 'default') {
-          jsonUrl = '/常规法典.json';
-        } else if (selectedPresetJson.value === 'example') {
-          jsonUrl = '/example_tags.json';
+          // 尝试多个可能的路径
+          const possiblePaths = [
+            '/所长常规法典.json',
+            './所长常规法典.json',
+            './public/所长常规法典.json', 
+            '../public/所长常规法典.json',
+            '../../public/所长常规法典.json',
+            '/public/所长常规法典.json'
+          ];
+          
+          let foundPath = false;
+          
+          for (const path of possiblePaths) {
+            try {
+              const resp = await fetch(path, { cache: 'no-cache' });
+              if (resp.ok) {
+                jsonUrl = path;
+                console.log(`找到所长常规法典路径: ${path}`);
+                foundPath = true;
+                break;
+              }
+            } catch (e) {
+              console.warn(`尝试路径 ${path} 失败:`, e);
+            }
+          }
+          
+          if (!foundPath) {
+            console.error('未能找到所长常规法典文件，尝试直接获取当前数据');
+            try {
+              // 尝试从TagLibrary直接获取数据
+              if (tagLibrary && tagLibrary.getLibrary) {
+                const defaultLib = tagLibrary.getLibrary('所长常规法典库');
+                if (defaultLib && Object.keys(defaultLib).length > 0) {
+                  console.log('直接从TagLibrary获取法典数据成功');
+                  presetFileContent.value = defaultLib;
+                  showNotification('success', `已加载法典数据: ${getPresetName()}`);
+                  return;
+                }
+              }
+              throw new Error('无法找到所长常规法典数据');
+            } catch (err) {
+              throw new Error('无法获取所长常规法典数据: ' + err.message);
+            }
+          }
         }
         
+        console.log(`使用路径加载JSON: ${jsonUrl}`);
+        
         // 获取JSON文件内容
-        const response = await fetch(jsonUrl);
+        const response = await fetch(jsonUrl, { cache: 'no-cache' });
         if (!response.ok) {
           throw new Error(`无法加载预设JSON: ${response.statusText}`);
         }
         
         // 解析JSON内容
         const content = await response.json();
-        fileContent.value = content;
-        fileSelected.value = true;
+        console.log('JSON内容加载成功:', Object.keys(content).length, '个分类');
+        
+        presetFileContent.value = content;
         
         showNotification('success', `已加载预设JSON: ${getPresetName()}`);
       } catch (error) {
         console.error('加载预设JSON失败:', error);
         showNotification('error', `加载预设JSON失败: ${error.message}`);
-        fileContent.value = null;
-        fileSelected.value = false;
+        presetFileContent.value = null;
         selectedPresetJson.value = '';
       }
     };
     
     // 处理文件选择
     const handleFileSelect = (event) => {
+      console.log('文件选择器触发事件');
+      
       const file = event.target.files[0];
       if (!file) {
+        console.log('没有选择文件');
+        fileSelected.value = false;
+        fileContent.value = null;
+        return;
+      }
+      
+      console.log('选择的文件:', file.name, file.type, file.size + ' 字节');
+      
+      // 检查文件类型
+      if (file.type !== 'application/json' && !file.name.endsWith('.json')) {
+        console.log('文件类型不是JSON');
+        showNotification('error', '请选择JSON文件');
         fileSelected.value = false;
         fileContent.value = null;
         return;
       }
       
       const reader = new FileReader();
+      
       reader.onload = (e) => {
         try {
-          const content = JSON.parse(e.target.result);
+          let jsonText = e.target.result;
+          console.log('读取到文件内容，长度:', jsonText.length);
+          
+          // 尝试解析JSON
+          const content = JSON.parse(jsonText);
+          console.log('JSON解析成功，分类数:', Object.keys(content).length);
+          
+          // 验证JSON格式
+          if (typeof content !== 'object' || content === null) {
+            throw new Error('无效的JSON格式：必须是一个对象');
+          }
+          
+          // 检查是否至少有一个分类，且每个分类都是数组
+          let hasValidCategory = false;
+          let invalidCategories = [];
+          
+          for (const category in content) {
+            if (!Array.isArray(content[category])) {
+              invalidCategories.push(category);
+              continue;
+            }
+            hasValidCategory = true;
+            console.log(`分类 "${category}" 包含 ${content[category].length} 个标签`);
+          }
+          
+          if (invalidCategories.length > 0) {
+            console.error('发现无效分类:', invalidCategories);
+            throw new Error(`以下分类的内容不是数组: ${invalidCategories.join(', ')}`);
+          }
+          
+          if (!hasValidCategory) {
+            throw new Error('JSON文件必须包含至少一个分类');
+          }
+          
+          // 存储解析后的内容
           fileContent.value = content;
           fileSelected.value = true;
+          showNotification('success', '文件加载成功');
+          
+          // 清除预设选择，因为现在使用的是上传的文件
+          selectedPresetJson.value = '';
+          
+          console.log('文件内容已成功加载到fileContent中');
         } catch (error) {
+          console.error('解析JSON失败:', error);
           showNotification('error', `无法解析文件: ${error.message}`);
           fileSelected.value = false;
           fileContent.value = null;
+          
+          // 清空文件输入，让用户可以重新选择
+          const fileInput = document.querySelector('input[type="file"]');
+          if (fileInput) {
+            fileInput.value = '';
+          }
         }
       };
       
+      reader.onerror = (error) => {
+        console.error('读取文件失败:', error);
+        showNotification('error', '读取文件失败');
+        fileSelected.value = false;
+        fileContent.value = null;
+      };
+      
+      console.log('开始读取文件...');
       reader.readAsText(file);
     };
     
     // 清空导入表单
     const clearImport = () => {
       newLibraryName.value = '';
-      extendLibraryName.value = '';
+      selectedLibraryName.value = '';
       fileContent.value = null;
       fileSelected.value = false;
       selectedPresetJson.value = '';
+      presetFileContent.value = null;
       
-      // 清空文件输入
+      // 清空文件输入，让用户可以重新选择
       const fileInput = document.querySelector('input[type="file"]');
       if (fileInput) {
         fileInput.value = '';
@@ -583,93 +724,50 @@ export default defineComponent({
       return result;
     };
     
-    // 导入库
-    const importLibrary = () => {
-      if (!fileSelected.value || !fileContent.value) {
-        showNotification('warning', '请先选择有效的JSON文件');
+    // 导入新库
+    const importNewLibrary = () => {
+      if (!fileContent.value) {
+        showNotification('warning', '请先选择JSON文件或预设');
+        return;
+      }
+      
+      if (!newLibraryName.value) {
+        showNotification('warning', '请输入新库名称');
         return;
       }
       
       try {
-        // 验证导入数据的格式
+        console.log('开始创建新库:', newLibraryName.value);
+        console.log('数据类型:', typeof fileContent.value);
+        console.log('分类数量:', Object.keys(fileContent.value).length);
+        
+        // 检查数据格式
         if (typeof fileContent.value !== 'object' || fileContent.value === null) {
-          throw new Error('导入数据必须是有效的JSON对象');
+          throw new Error('无效的数据格式：数据必须是一个对象');
         }
         
-        // 验证对象结构 - 至少包含一个分类，且每个分类都是数组
-        let hasValidCategory = false;
-        for (const category in fileContent.value) {
-          if (!Array.isArray(fileContent.value[category])) {
-            throw new Error(`分类 "${category}" 的内容必须是数组`);
-          }
-          hasValidCategory = true;
+        // 检查库名是否已存在
+        const existingLibraries = props.libraries.map(lib => lib.name);
+        if (existingLibraries.includes(newLibraryName.value)) {
+          throw new Error(`库名 "${newLibraryName.value}" 已存在，请使用不同的名称`);
         }
         
-        if (!hasValidCategory) {
-          throw new Error('导入的数据必须至少包含一个分类');
-        }
-        
-        if (importMode.value === 'new') {
-          // 创建新库模式
-          if (!newLibraryName.value) {
-            showNotification('warning', '请输入新库名称');
-            return;
+        // 使用添加库方法或导入库方法
+        if (tagLibrary.importLibrary) {
+          console.log('使用importLibrary方法');
+          tagLibrary.importLibrary(newLibraryName.value, fileContent.value);
+        } else if (tagLibrary.addLibrary) {
+          console.log('使用addLibrary方法');
+          const result = tagLibrary.addLibrary(newLibraryName.value, fileContent.value);
+          if (!result) {
+            throw new Error('添加库失败，请查看控制台获取更多信息');
           }
-          
-          // 检查库名是否已存在
-          const existingLibraries = props.libraries.map(lib => lib.name);
-          if (existingLibraries.includes(newLibraryName.value)) {
-            throw new Error(`库名 "${newLibraryName.value}" 已存在，请使用不同的名称`);
-          }
-          
-          // 使用添加库方法或导入库方法
-          if (tagLibrary.importLibrary) {
-            tagLibrary.importLibrary(newLibraryName.value, fileContent.value);
-          } else if (tagLibrary.addLibrary) {
-            tagLibrary.addLibrary(newLibraryName.value, fileContent.value);
-          } else {
-            throw new Error('缺少导入库的API，请确保标签库提供必要的方法');
-          }
-          
-          showNotification('success', `成功导入库 "${newLibraryName.value}"`);
         } else {
-          // 扩展现有库模式
-          if (!extendLibraryName.value) {
-            showNotification('warning', '请选择要扩展的库');
-            return;
-          }
-          
-          // 使用扩展库方法
-          if (tagLibrary.extendLibrary) {
-            tagLibrary.extendLibrary(extendLibraryName.value, fileContent.value);
-          } else {
-            // 后备方案：获取现有库，合并数据，然后替换
-            const existingLibrary = tagLibrary.getLibrary(extendLibraryName.value);
-            const mergedData = {...existingLibrary};
-            
-            // 合并分类和标签
-            for (const category in fileContent.value) {
-              if (Array.isArray(mergedData[category])) {
-                // 已存在的分类，添加新标签
-                mergedData[category] = [...mergedData[category], ...fileContent.value[category]];
-              } else {
-                // 新分类，直接添加
-                mergedData[category] = [...fileContent.value[category]];
-              }
-            }
-            
-            // 保存合并后的数据
-            if (tagLibrary.setLibrary) {
-              tagLibrary.setLibrary(extendLibraryName.value, mergedData);
-            } else if (tagLibrary.addLibrary) {
-              tagLibrary.addLibrary(extendLibraryName.value, mergedData);
-            } else {
-              throw new Error('缺少更新库的API，请确保标签库提供必要的方法');
-            }
-          }
-          
-          showNotification('success', `成功扩展库 "${extendLibraryName.value}"`);
+          throw new Error('缺少导入库的API，请确保标签库提供必要的方法');
         }
+        
+        console.log('新库创建成功:', newLibraryName.value);
+        showNotification('success', `成功创建新库 "${newLibraryName.value}"`);
         
         // 清空表单
         clearImport();
@@ -679,7 +777,120 @@ export default defineComponent({
         // 通知预览面板更新
         emitter.emit('tagLibraryUpdated');
       } catch (error) {
-        showNotification('error', `导入失败: ${error.message}`);
+        console.error('创建新库失败:', error);
+        showNotification('error', `创建新库失败: ${error.message}`);
+      }
+    };
+    
+    // 将上传的数据扩展到现有库
+    const extendExistingLibrary = () => {
+      console.log('点击了扩展现有库按钮');
+      
+      if (!fileContent.value && !presetFileContent.value) {
+        console.error('没有要导入的数据');
+        showNotification('error', '没有要导入的数据，请先选择文件或预设');
+        return;
+      }
+      
+      // 获取要导入的数据（优先使用上传的文件内容）
+      const importData = fileContent.value || presetFileContent.value;
+      console.log('要导入的数据:', Object.keys(importData));
+      
+      if (!selectedLibraryName.value) {
+        console.error('未选择目标库');
+        showNotification('error', '请选择要扩展的目标库');
+        return;
+      }
+      
+      console.log('目标库:', selectedLibraryName.value);
+      
+      try {
+        // 获取当前库的数据
+        const currentLibrary = tagLibrary.getLibrary(selectedLibraryName.value);
+        if (!currentLibrary) {
+          throw new Error(`找不到库: ${selectedLibraryName.value}`);
+        }
+        
+        console.log('当前库数据:', Object.keys(currentLibrary));
+        
+        // 合并数据
+        const mergedLibrary = { ...currentLibrary };
+        let addedCategories = 0;
+        let addedTags = 0;
+        
+        // 遍历导入数据的每个分类
+        for (const category in importData) {
+          if (Array.isArray(importData[category])) {
+            // 如果现有库中没有这个分类，直接添加
+            if (!mergedLibrary[category]) {
+              mergedLibrary[category] = [...importData[category]];
+              addedCategories++;
+              addedTags += importData[category].length;
+              console.log(`添加新分类: ${category}，包含 ${importData[category].length} 个标签`);
+            } 
+            // 如果分类已存在，合并标签并去重
+            else {
+              // 创建一个Set用于去重
+              const existingTags = new Set(mergedLibrary[category]);
+              const originalCount = existingTags.size;
+              
+              // 添加新标签并去重
+              importData[category].forEach(tag => existingTags.add(tag));
+              
+              // 更新合并后的库
+              mergedLibrary[category] = Array.from(existingTags);
+              
+              // 计算新增的标签数量
+              const addedToCategory = existingTags.size - originalCount;
+              addedTags += addedToCategory;
+              
+              console.log(`更新现有分类: ${category}，添加了 ${addedToCategory} 个标签`);
+            }
+          } else {
+            console.warn(`跳过无效分类: ${category}，它不是一个数组`);
+          }
+        }
+        
+        // 保存合并后的库
+        console.log('保存合并后的库:', Object.keys(mergedLibrary));
+        tagLibrary.setLibrary(selectedLibraryName.value, mergedLibrary);
+        tagLibrary._saveToStorage();
+        
+        // 显示成功提示
+        const successMessage = `成功扩展库 "${selectedLibraryName.value}"：新增 ${addedCategories} 个分类和 ${addedTags} 个标签`;
+        console.log(successMessage);
+        showNotification('success', successMessage);
+        
+        // 重置文件选择状态
+        fileSelected.value = false;
+        fileContent.value = null;
+        selectedPresetJson.value = '';
+        presetFileContent.value = null;
+        
+        // 清空文件输入，让用户可以重新选择
+        const fileInput = document.querySelector('input[type="file"]');
+        if (fileInput) {
+          fileInput.value = '';
+        }
+        
+        // 更新库列表（可能添加了新库）
+        updateLibraryList();
+        
+        // 发送更新事件
+        emit('library-updated');
+        emitter.emit('tagLibraryUpdated');
+      } catch (error) {
+        console.error('扩展库失败:', error);
+        showNotification('error', `扩展库失败: ${error.message}`);
+      }
+    };
+    
+    // 原来的importLibrary函数可以移除或改造为根据模式调用上面两个函数
+    const importLibrary = () => {
+      if (importMode.value === 'new') {
+        importNewLibrary();
+      } else {
+        extendExistingLibrary();
       }
     };
     
@@ -733,86 +944,116 @@ export default defineComponent({
       }
       
       try {
-        // 获取库内容
-        const libraryContent = tagLibrary.getLibrary(exportLibraryName.value);
+        // 获取库数据
+        let libraryData = tagLibrary.getLibrary(exportLibraryName.value);
         
-        // 确保有内容
-        if (!libraryContent || Object.keys(libraryContent).length === 0) {
-          showNotification('warning', `库 "${exportLibraryName.value}" 没有内容可导出`);
-          return;
+        // 检查库数据
+        if (!libraryData || Object.keys(libraryData).length === 0) {
+          throw new Error(`库 "${exportLibraryName.value}" 数据为空或不存在`);
         }
         
-        // 转换为JSON字符串
-        const jsonContent = JSON.stringify(libraryContent, null, 2);
+        // 转换为JSON
+        const jsonData = JSON.stringify(libraryData, null, 2);
         
-        // 创建下载链接
-        downloadJsonFile(jsonContent, exportLibraryName.value);
+        // 创建Blob和下载链接
+        const blob = new Blob([jsonData], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
         
-        showNotification('success', `成功导出库 "${exportLibraryName.value}"`);
+        // 创建下载链接并点击
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${exportLibraryName.value}.json`;
+        document.body.appendChild(a);
+        a.click();
+        
+        // 清理
+        setTimeout(() => {
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }, 100);
+        
+        showNotification('success', `库 "${exportLibraryName.value}" 导出成功`);
       } catch (error) {
-        console.error('导出失败:', error);
-        showNotification('error', `导出失败: ${error.message}`);
+        console.error('导出库失败:', error);
+        showNotification('error', `导出库失败: ${error.message}`);
       }
     };
     
     // 导出当前库
     const exportCurrentLibrary = () => {
-      try {
-        // 获取当前库名称
-        const currentLibraryName = tagLibrary.getCurrentLibraryName();
-        
-        // 获取当前库内容
-        const libraryContent = tagLibrary.getCurrentLibrary();
-        
-        // 确保有内容
-        if (!libraryContent || Object.keys(libraryContent).length === 0) {
-          showNotification('warning', '当前库没有内容可导出');
-          return;
-        }
-        
-        // 转换为JSON字符串
-        const jsonContent = JSON.stringify(libraryContent, null, 2);
-        
-        // 创建下载链接
-        downloadJsonFile(jsonContent, currentLibraryName);
-        
-        showNotification('success', `成功导出当前库`);
-      } catch (error) {
-        console.error('导出失败:', error);
-        showNotification('error', `导出失败: ${error.message}`);
+      // 获取当前库名
+      const currentLibName = tagLibrary.getCurrentLibraryName();
+      if (!currentLibName) {
+        showNotification('warning', '当前没有选择的库');
+        return;
       }
+      
+      // 设置导出库名并调用导出方法
+      exportLibraryName.value = currentLibName;
+      exportLibrary();
     };
     
-    // 辅助函数：下载JSON文件
-    const downloadJsonFile = (jsonContent, fileName) => {
-      // 创建Blob对象
-      const blob = new Blob([jsonContent], { type: 'application/json' });
+    // 添加调试检查功能
+    const debugCheckFileContent = () => {
+      console.log('=== 调试检查文件内容状态 ===');
+      console.log('fileContent 是否为null:', fileContent.value === null);
+      console.log('fileSelected 状态:', fileSelected.value);
+      console.log('selectedLibraryName:', selectedLibraryName.value);
+      console.log('selectedPresetJson:', selectedPresetJson.value);
+      console.log('presetFileContent 是否为null:', presetFileContent.value === null);
       
-      // 创建下载链接
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${fileName}_tags.json`;
+      if (fileContent.value) {
+        console.log('上传文件内容摘要:');
+        console.log('- 分类数:', Object.keys(fileContent.value).length);
+        for (const category in fileContent.value) {
+          if (Array.isArray(fileContent.value[category])) {
+            console.log(`- ${category}: ${fileContent.value[category].length} 个标签`);
+          } else {
+            console.log(`- ${category}: 无效格式 (${typeof fileContent.value[category]})`);
+          }
+        }
+      }
       
-      // 模拟点击下载
-      document.body.appendChild(link);
-      link.click();
+      if (presetFileContent.value) {
+        console.log('预设JSON内容摘要:');
+        console.log('- 分类数:', Object.keys(presetFileContent.value).length);
+        for (const category in presetFileContent.value) {
+          if (Array.isArray(presetFileContent.value[category])) {
+            console.log(`- ${category}: ${presetFileContent.value[category].length} 个标签`);
+          } else {
+            console.log(`- ${category}: 无效格式 (${typeof presetFileContent.value[category]})`);
+          }
+        }
+      }
       
-      // 清理
-      setTimeout(() => {
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-      }, 100);
+      // 检查DOM元素
+      const fileInput = document.querySelector('input[type="file"]');
+      console.log('文件输入元素:', fileInput ? '已找到' : '未找到');
+      if (fileInput) {
+        console.log('文件输入值:', fileInput.value);
+      }
+      
+      // 检查库列表
+      console.log('可用库列表:');
+      props.libraries.forEach(lib => {
+        console.log(`- ${lib.name}: ${lib.count} 个标签`);
+      });
+      
+      // 弹出提示
+      showNotification('info', '请查看控制台以获取调试信息');
     };
     
     return {
       importMode,
       newLibraryName,
-      extendLibraryName,
+      selectedLibraryName,
       fileSelected,
+      fileContent,
+      presetFileContent,
       handleFileSelect,
       clearImport,
-      importLibrary,
+      importNewLibrary,
+      extendExistingLibrary,
       sourceText,
       convertedJson,
       textFormat,
@@ -829,7 +1070,8 @@ export default defineComponent({
       exportCurrentLibrary,
       selectedPresetJson,
       handlePresetChange,
-      getPresetName
+      getPresetName,
+      debugCheckFileContent
     };
   }
 });
@@ -1030,6 +1272,26 @@ textarea.form-control {
 
 .export-panel {
   margin-top: var(--spacing-sm, 10px);
+}
+
+.info-text {
+  font-size: 0.9rem;
+  color: var(--text-color-light, #666);
+  margin-top: 5px;
+}
+
+.import-action {
+  margin-right: 10px;
+  display: inline-block;
+}
+
+.debug-btn {
+  background-color: #673ab7;
+  color: white;
+}
+
+.debug-btn:hover {
+  background-color: #5e35b1;
 }
 
 @media (max-width: 768px) {

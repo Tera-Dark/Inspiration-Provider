@@ -169,6 +169,63 @@
         </div>
       </div>
     </div>
+    
+    <!-- 添加数据清除功能区域 -->
+    <div class="settings-section danger-zone">
+      <h3 class="section-title">数据清除</h3>
+      
+      <div class="warning-text">
+        <strong>警告：</strong> 以下操作会删除数据，请谨慎操作。所有操作无法撤销。
+      </div>
+      
+      <div class="settings-item">
+        <div class="setting-label">清除历史记录</div>
+        <div class="setting-control">
+          <button @click="clearHistory" class="action-button warning">
+            清除历史记录
+          </button>
+          <div class="setting-description">
+            删除所有抽签历史记录，不影响标签库数据。
+          </div>
+        </div>
+      </div>
+      
+      <div class="settings-item">
+        <div class="setting-label">清除标签库</div>
+        <div class="setting-control">
+          <div class="select-action">
+            <select v-model="selectedLibraryToClear" class="select-input">
+              <option value="">-- 选择要清除的库 --</option>
+              <option v-for="lib in libraries" :key="lib" :value="lib">
+                {{ lib }}
+              </option>
+            </select>
+            <button 
+              @click="clearSelectedLibrary" 
+              class="action-button warning"
+              :disabled="!selectedLibraryToClear"
+            >
+              清除选中的库
+            </button>
+          </div>
+          <div class="setting-description">
+            删除指定标签库的所有数据。
+          </div>
+        </div>
+      </div>
+      
+      <div class="settings-item">
+        <div class="setting-label">清除所有数据</div>
+        <div class="setting-control">
+          <button @click="clearAllData" class="action-button danger">
+            清除所有数据
+          </button>
+          <div class="setting-description">
+            删除所有标签库、历史记录和设置。此操作将重置整个应用。
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -198,6 +255,10 @@ export default defineComponent({
     
     // 备份列表
     const backups = ref([]);
+    
+    // 数据清除相关
+    const libraries = ref([]);
+    const selectedLibraryToClear = ref('');
     
     // 加载设置
     const loadSettings = () => {
@@ -522,9 +583,117 @@ export default defineComponent({
       }
     };
     
+    // 加载所有标签库名称
+    const loadLibraryNames = () => {
+      try {
+        if (tagLibrary && tagLibrary.getLibraryNames) {
+          libraries.value = tagLibrary.getLibraryNames();
+        } else {
+          libraries.value = [];
+        }
+      } catch (error) {
+        console.error('加载标签库名称失败', error);
+        libraries.value = [];
+      }
+    };
+    
+    // 清除历史记录
+    const clearHistory = () => {
+      if (confirm('确定要清除所有历史记录吗？此操作无法撤销。')) {
+        try {
+          if (tagLibrary && tagLibrary.clearHistory) {
+            tagLibrary.clearHistory();
+            
+            emitter.emit('notification', {
+              type: 'success',
+              message: '已清除所有历史记录'
+            });
+          } else {
+            throw new Error('清除历史记录功能不可用');
+          }
+        } catch (error) {
+          console.error('清除历史记录失败', error);
+          emitter.emit('notification', {
+            type: 'error',
+            message: `清除历史记录失败: ${error.message}`
+          });
+        }
+      }
+    };
+    
+    // 清除选中的标签库
+    const clearSelectedLibrary = () => {
+      if (!selectedLibraryToClear.value) {
+        emitter.emit('notification', {
+          type: 'warning',
+          message: '请先选择要清除的标签库'
+        });
+        return;
+      }
+      
+      if (confirm(`确定要清除"${selectedLibraryToClear.value}"标签库吗？此操作无法撤销。`)) {
+        try {
+          if (tagLibrary && tagLibrary.deleteLibrary) {
+            const result = tagLibrary.deleteLibrary(selectedLibraryToClear.value);
+            
+            if (result) {
+              // 刷新库列表
+              loadLibraryNames();
+              selectedLibraryToClear.value = '';
+              
+              emitter.emit('notification', {
+                type: 'success',
+                message: `已清除"${selectedLibraryToClear.value}"标签库`
+              });
+              
+              // 触发标签库更新事件
+              emitter.emit('tagLibraryUpdated');
+            } else {
+              throw new Error('无法清除默认标签库或库不存在');
+            }
+          } else {
+            throw new Error('清除标签库功能不可用');
+          }
+        } catch (error) {
+          console.error('清除标签库失败', error);
+          emitter.emit('notification', {
+            type: 'error',
+            message: `清除标签库失败: ${error.message}`
+          });
+        }
+      }
+    };
+    
+    // 清除所有数据
+    const clearAllData = () => {
+      if (confirm('警告：确定要清除所有数据吗？这将删除所有标签库、历史记录和设置，此操作无法撤销！')) {
+        try {
+          // 清除所有本地存储
+          localStorage.clear();
+          
+          emitter.emit('notification', {
+            type: 'success',
+            message: '已清除所有数据，即将重新加载页面'
+          });
+          
+          // 延迟一秒后重新加载页面
+          setTimeout(() => {
+            window.location.reload();
+          }, 1500);
+        } catch (error) {
+          console.error('清除所有数据失败', error);
+          emitter.emit('notification', {
+            type: 'error',
+            message: `清除所有数据失败: ${error.message}`
+          });
+        }
+      }
+    };
+    
     // 初始化
     onMounted(() => {
       loadSettings();
+      loadLibraryNames();
     });
     
     return {
@@ -548,7 +717,12 @@ export default defineComponent({
       connectGoogleAccount,
       disconnectGoogleAccount,
       connectOneDriveAccount,
-      disconnectOneDriveAccount
+      disconnectOneDriveAccount,
+      libraries,
+      selectedLibraryToClear,
+      clearHistory,
+      clearSelectedLibrary,
+      clearAllData
     };
   }
 });
@@ -875,6 +1049,61 @@ export default defineComponent({
   .backup-actions {
     width: 100%;
     justify-content: flex-end;
+  }
+}
+
+/* 数据清除区域样式 */
+.danger-zone {
+  border: 1px solid var(--danger-color-light, rgba(244, 67, 54, 0.3));
+  background-color: var(--danger-color-lighter, rgba(244, 67, 54, 0.05));
+}
+
+.warning-text {
+  margin-bottom: 1rem;
+  padding: 0.75rem;
+  background-color: rgba(255, 193, 7, 0.1);
+  border-left: 4px solid var(--warning-color, #ffc107);
+  border-radius: 2px;
+  color: var(--text-color-dark, #333);
+}
+
+.select-action {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.select-action .select-input {
+  flex: 1;
+}
+
+.action-button.warning {
+  background-color: var(--warning-color, #ffc107);
+  color: #333;
+}
+
+.action-button.warning:hover {
+  background-color: #e6ac00;
+}
+
+.action-button.danger {
+  background-color: var(--danger-color, #f44336);
+  color: white;
+}
+
+.action-button.danger:hover {
+  background-color: var(--danger-hover-color, #d32f2f);
+}
+
+/* 响应式设计调整 */
+@media (max-width: 768px) {
+  .select-action {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .select-action .select-input {
+    margin-bottom: 8px;
   }
 }
 </style> 
