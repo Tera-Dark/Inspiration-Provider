@@ -5,7 +5,7 @@
     <div class="info-content">
       <div class="info-section">
         <div class="info-title">标签抽签工具</div>
-        <p>版本 1.2.1</p>
+        <p>版本 1.2.3</p>
         <p>一个用于管理和随机抽取标签的工具，适用于创意激发。随机选择等场景。支持多标签库、历史记录、权重抽取等高级功能。</p>
       </div>
       
@@ -54,42 +54,53 @@
         </div>
         <div class="update-log-body">
           <div class="version-entry">
-            <div class="version-header">版本 1.2.1 (2025-04-03)</div>
+            <div class="version-header">版本 1.2.3 (2024-04-08)</div>
             <ul class="version-changes">
-              <li>全面优化移动设备体验和响应式布局</li>
-              <li>增强数据加载性能和错误处理机制</li>
-              <li>改进通知系统，支持同类通知合并</li>
-              <li>优化标签库高级编辑器界面</li>
-              <li>提升应用稳定性，修复已知问题</li>
+              <li>修复高级编辑器标签管理功能</li>
+              <li>优化事件处理机制，解决循环刷新问题</li>
+              <li>增强表单验证和错误处理</li>
+              <li>改进标签库数据处理逻辑</li>
+              <li>添加详细日志记录，便于问题排查</li>
+              <li>提升应用整体稳定性</li>
             </ul>
           </div>
           <div class="version-entry">
-            <div class="version-header">版本 1.2.0 (2025-04-02)</div>
+            <div class="version-header">版本 1.2.2 (2024-04-07)</div>
             <ul class="version-changes">
-              <li>基于Vue 3的重构版本</li>
-              <li>新增主题颜色自定义功能</li>
-              <li>新增字体大小调整功能</li>
-              <li>优化标签库管理界面</li>
-              <li>新增深色模式支持</li>
-              <li>改进性能和稳定性</li>
+              <li>优化权重添加器功能</li>
+              <li>改进所长常规法典库的支持</li>
+              <li>优化标签库预览界面布局</li>
+              <li>修复对象格式标签的解析问题</li>
+              <li>增强深色模式显示效果</li>
             </ul>
           </div>
           <div class="version-entry">
-            <div class="version-header">版本 1.1.0 (2025-04-01)</div>
+            <div class="version-header">版本 1.2.1 (2024-04-04)</div>
+            <ul class="version-changes">
+              <li>添加标签格式转换工具</li>
+              <li>支持多种文本格式导入</li>
+              <li>优化移动端适配</li>
+              <li>改进用户界面交互</li>
+              <li>优化数据处理性能</li>
+            </ul>
+          </div>
+          <div class="version-entry">
+            <div class="version-header">版本 1.2.0 (2024-04-01)</div>
+            <ul class="version-changes">
+              <li>新增权重添加器功能</li>
+              <li>标签库管理系统升级</li>
+              <li>深色模式优化</li>
+              <li>本地数据存储增强</li>
+              <li>响应式设计改进</li>
+            </ul>
+          </div>
+          <div class="version-entry">
+            <div class="version-header">版本 1.1.0 (2024-03-31)</div>
             <ul class="version-changes">
               <li>新增标签权重功能</li>
               <li>新增历史记录管理</li>
               <li>改进用户界面交互</li>
               <li>修复多项已知问题</li>
-            </ul>
-          </div>
-          <div class="version-entry">
-            <div class="version-header">版本 1.0.0 (2025-03-31)</div>
-            <ul class="version-changes">
-              <li>首次发布</li>
-              <li>基本标签抽取功能</li>
-              <li>支持自定义标签库</li>
-              <li>支持标签分类</li>
             </ul>
           </div>
         </div>

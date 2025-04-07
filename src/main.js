@@ -18,24 +18,40 @@ import mitt from 'mitt';
 const emitter = mitt();
 console.log('事件总线(mitt)已创建');
 
+// 创建标签库服务实例
+const tagLibrary = new TagLibrary({}, emitter);
+
+// 示例标签数据 - 将来可以从服务器加载
+const exampleTags = {
+  artists: [
+    "Da Vinci", "Van Gogh", "Monet", "Picasso", 
+    "Rembrandt", "Kahlo", "O'Keeffe", "Dali"
+  ],
+  styles: [
+    "Impressionism", "Cubism", "Surrealism", "Realism",
+    "Expressionism", "Pop Art", "Minimalism", "Abstract"
+  ]
+};
+
 // 异步加载标签数据并初始化应用
 async function initApp() {
   try {
     // 加载标签数据
     const tagLoader = new TagLoader();
     
-    // 加载所长常规法典作为默认库
+    // 加载所有预设库
     const defaultTags = await tagLoader.loadDefaultTags();
-    console.log('所长常规法典数据加载完成');
+    const artistTags = await tagLoader.loadArtistTags();
+    const lawTags = await tagLoader.loadLawTags();
+    console.log('所有预设标签库数据加载完成');
     
-    // 初始化标签库对象
-    const tagLibrary = new TagLibrary({});
-    
-    // 添加默认库
-    tagLibrary.addLibrary('所长常规法典库', defaultTags);
+    // 添加所有预设库到全局标签库实例
+    tagLibrary.addLibrary('默认标签库', defaultTags);
+    tagLibrary.addLibrary('画师标签库', artistTags);
+    tagLibrary.addLibrary('所长常规法典库', lawTags);
     
     // 设置默认库
-    tagLibrary.setCurrentLibrary('所长常规法典库');
+    tagLibrary.setCurrentLibrary('默认标签库');
     
     // 初始化抽取器
     const tagDrawer = new TagDrawer(tagLibrary);
@@ -61,10 +77,22 @@ async function initApp() {
     });
     
     // 添加标签库更新事件监听器
+    let tagLibEventProcessing = false;
     window.addEventListener('tagLibraryUpdated', () => {
+      // 防止事件循环
+      if (tagLibEventProcessing) {
+        console.log('全局事件: 忽略重复的 tagLibraryUpdated 事件');
+        return;
+      }
+      
+      tagLibEventProcessing = true;
       console.log('全局事件: tagLibraryUpdated 被触发');
+      
       // 将原生事件转发到mitt事件系统，确保所有组件能够接收到更新通知
-      emitter.emit('tagLibraryUpdated');
+      setTimeout(() => {
+        emitter.emit('tagLibraryUpdated');
+        tagLibEventProcessing = false;
+      }, 10);
     });
     
     // 挂载应用
@@ -72,6 +100,13 @@ async function initApp() {
     console.log('应用已挂载到DOM');
   } catch (error) {
     console.error('应用初始化失败:', error);
+    
+    // 即使加载失败也继续初始化应用
+    const app = createApp(App);
+    app.provide('emitter', emitter);
+    app.provide('tagLibrary', tagLibrary);
+    app.mount('#app');
+    console.log('Vue应用已挂载(标签库数据加载失败)');
   }
 }
 

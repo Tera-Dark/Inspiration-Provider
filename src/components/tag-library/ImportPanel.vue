@@ -53,7 +53,9 @@
             @change="handlePresetChange"
           >
             <option value="">-- 选择预设JSON --</option>
-            <option value="default">所长常规法典</option>
+            <option value="default">默认标签库</option>
+            <option value="artists">画师标签库</option>
+            <option value="所长常规法典">所长常规法典</option>
           </select>
           <div class="info-text" v-if="selectedPresetJson">已选择预设: {{ getPresetName() }}</div>
         </div>
@@ -247,10 +249,12 @@ export default defineComponent({
     
     // 获取预设名称
     const getPresetName = () => {
-      if (selectedPresetJson.value === 'default') {
-        return '所长常规法典';
-      }
-      return '';
+      const presetMap = {
+        'default': '默认标签库',
+        'artists': '画师标签库',
+        '所长常规法典': '所长常规法典'
+      };
+      return presetMap[selectedPresetJson.value] || selectedPresetJson.value;
     };
     
     // 添加一个直接使用预设数据的功能
@@ -275,81 +279,20 @@ export default defineComponent({
       }
       
       try {
-        // 先尝试使用内置预设数据
-        if (usePresetData(selectedPresetJson.value)) {
-          console.log('使用内置预设数据成功');
-          return;
-        }
-        
-        // 根据选择加载不同的JSON文件
-        let jsonUrl = '';
-        if (selectedPresetJson.value === 'default') {
-          // 尝试多个可能的路径
-          const possiblePaths = [
-            '/所长常规法典.json',
-            './所长常规法典.json',
-            './public/所长常规法典.json', 
-            '../public/所长常规法典.json',
-            '../../public/所长常规法典.json',
-            '/public/所长常规法典.json'
-          ];
-          
-          let foundPath = false;
-          
-          for (const path of possiblePaths) {
-            try {
-              const resp = await fetch(path, { cache: 'no-cache' });
-              if (resp.ok) {
-                jsonUrl = path;
-                console.log(`找到所长常规法典路径: ${path}`);
-                foundPath = true;
-                break;
-              }
-            } catch (e) {
-              console.warn(`尝试路径 ${path} 失败:`, e);
-            }
-          }
-          
-          if (!foundPath) {
-            console.error('未能找到所长常规法典文件，尝试直接获取当前数据');
-            try {
-              // 尝试从TagLibrary直接获取数据
-              if (tagLibrary && tagLibrary.getLibrary) {
-                const defaultLib = tagLibrary.getLibrary('所长常规法典库');
-                if (defaultLib && Object.keys(defaultLib).length > 0) {
-                  console.log('直接从TagLibrary获取法典数据成功');
-                  presetFileContent.value = defaultLib;
-                  showNotification('success', `已加载法典数据: ${getPresetName()}`);
-                  return;
-                }
-              }
-              throw new Error('无法找到所长常规法典数据');
-            } catch (err) {
-              throw new Error('无法获取所长常规法典数据: ' + err.message);
-            }
-          }
-        }
-        
-        console.log(`使用路径加载JSON: ${jsonUrl}`);
-        
-        // 获取JSON文件内容
-        const response = await fetch(jsonUrl, { cache: 'no-cache' });
+        const response = await fetch(`/public/${selectedPresetJson.value === 'default' ? 'default.json' : 
+                                             selectedPresetJson.value === 'artists' ? 'artists.json' : 
+                                             '所长常规法典.json'}`);
         if (!response.ok) {
-          throw new Error(`无法加载预设JSON: ${response.statusText}`);
+          throw new Error('加载预设JSON失败');
         }
-        
-        // 解析JSON内容
-        const content = await response.json();
-        console.log('JSON内容加载成功:', Object.keys(content).length, '个分类');
-        
-        presetFileContent.value = content;
-        
-        showNotification('success', `已加载预设JSON: ${getPresetName()}`);
+        const data = await response.json();
+        presetFileContent.value = data;
+        fileSelected.value = false;
       } catch (error) {
-        console.error('加载预设JSON失败:', error);
-        showNotification('error', `加载预设JSON失败: ${error.message}`);
-        presetFileContent.value = null;
-        selectedPresetJson.value = '';
+        emitter.emit('notification', {
+          type: 'error',
+          message: `加载预设JSON失败: ${error.message}`
+        });
       }
     };
     
@@ -1043,6 +986,53 @@ export default defineComponent({
       showNotification('info', '请查看控制台以获取调试信息');
     };
     
+    const handleImport = async () => {
+      if (!fileContent.value && !presetFileContent.value) {
+        emitter.emit('notification', {
+          type: 'error',
+          message: '请先选择或上传JSON文件'
+        });
+        return;
+      }
+
+      try {
+        const content = presetFileContent.value || JSON.parse(fileContent.value);
+        
+        if (importMode.value === 'new') {
+          // 创建新库
+          if (!newLibraryName.value) {
+            throw new Error('请输入新库名称');
+          }
+          await tagLibrary.createLibrary(newLibraryName.value, content);
+          emitter.emit('notification', {
+            type: 'success',
+            message: `成功创建新库: ${newLibraryName.value}`
+          });
+        } else {
+          // 扩展现有库
+          if (!selectedLibraryName.value) {
+            throw new Error('请选择要扩展的库');
+          }
+          await tagLibrary.extendLibrary(selectedLibraryName.value, content);
+          emitter.emit('notification', {
+            type: 'success',
+            message: `成功扩展库: ${selectedLibraryName.value}`
+          });
+        }
+
+        // 重置表单
+        resetForm();
+        // 通知父组件更新
+        emit('library-updated');
+
+      } catch (error) {
+        emitter.emit('notification', {
+          type: 'error',
+          message: `导入失败: ${error.message}`
+        });
+      }
+    };
+    
     return {
       importMode,
       newLibraryName,
@@ -1079,159 +1069,144 @@ export default defineComponent({
 
 <style scoped>
 .import-panel {
-  background-color: var(--panel-bg-color, #fff);
-  border-radius: var(--border-radius-lg, 8px);
-  padding: var(--spacing-md, 15px);
-  margin-bottom: var(--spacing-lg, 20px);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
 
 .section {
-  background-color: var(--panel-bg-color, #fff);
-  border-radius: var(--border-radius-lg, 8px);
-  box-shadow: var(--shadow-md, 0 1px 3px rgba(0, 0, 0, 0.1));
-  padding: var(--spacing-lg, 20px);
-  margin-bottom: var(--spacing-lg, 20px);
+  background-color: var(--section-bg-color, #f9f9f9);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
 }
 
 .section h3 {
-  font-size: var(--font-size-lg, 1.2rem);
+  padding: 12px 16px;
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 500;
   color: var(--text-color, #333);
-  margin-top: 0;
-  margin-bottom: var(--spacing-md, 15px);
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--border-color, #eee);
+  border-bottom: 1px solid var(--border-color-light, #eee);
+  background-color: var(--section-header-bg, rgba(0, 0, 0, 0.02));
 }
 
 .form-group {
-  margin-bottom: var(--spacing-md, 15px);
+  padding: 16px;
+  margin-bottom: 0;
 }
 
-.form-group label {
-  display: block;
-  margin-bottom: 5px;
+.form-group + .form-group {
+  border-top: 1px solid var(--border-color-light, #eee);
+}
+
+.form-control {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--border-color, #ddd);
+  border-radius: 6px;
+  background-color: var(--input-bg-color, #fff);
   color: var(--text-color, #333);
-  font-weight: 500;
+  font-size: 0.9rem;
+  transition: all 0.3s;
+}
+
+.form-control:focus {
+  border-color: var(--primary-color, #1677ff);
+  box-shadow: 0 0 0 2px rgba(22, 119, 255, 0.1);
+  outline: none;
 }
 
 .radio-group {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--spacing-lg, 20px);
-  margin-bottom: var(--spacing-sm, 10px);
+  gap: 20px;
 }
 
 .radio-item {
   display: flex;
   align-items: center;
-}
-
-.radio-item input {
-  margin-right: 8px;
+  gap: 8px;
   cursor: pointer;
 }
 
-.radio-item label, .radio-item span {
-  cursor: pointer;
-  margin-bottom: 0;
-}
-
-.form-control {
-  width: 100%;
-  padding: 10px 12px;
-  border: 1px solid var(--border-color, #ddd);
-  border-radius: var(--border-radius-sm, 4px);
-  font-size: var(--font-size-md, 1rem);
-  color: var(--text-color, #333);
-  background-color: var(--input-bg-color, #fff);
-  transition: border-color 0.2s;
-}
-
-.form-control:focus {
-  outline: none;
-  border-color: var(--primary-color, #2196F3);
-  box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.2);
-}
-
-textarea.form-control {
-  min-height: 150px;
-  resize: vertical;
-}
-
-.card {
-  background-color: var(--panel-bg-color, #fff);
-  border-radius: var(--border-radius-md, 6px);
-  box-shadow: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.05));
-  margin-bottom: var(--spacing-md, 15px);
-  overflow: hidden;
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 16px;
-  background-color: var(--panel-header-bg-color, #f9f9f9);
-  border-bottom: 1px solid var(--border-color, #eee);
-}
-
-.card-header h4 {
+.radio-item input[type="radio"] {
   margin: 0;
-  font-size: var(--font-size-md, 1rem);
-  color: var(--text-color, #333);
+  accent-color: var(--primary-color, #1677ff);
 }
 
-.format-selector {
+.radio-item label {
+  color: var(--text-color, #333);
+  cursor: pointer;
+}
+
+.input-group {
   display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
+  gap: 10px;
+}
+
+.json-import, .export-panel, .text-convert-import {
+  padding: 16px;
+}
+
+label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: var(--text-color, #333);
+  font-size: 0.9rem;
+}
+
+.info-text {
+  margin-top: 8px;
+  font-size: 0.85rem;
+  color: var(--text-color-light, #666);
 }
 
 .file-label {
-  display: inline-block;
-  padding: 10px 15px;
-  background-color: var(--secondary-color, #f1f1f1);
-  color: var(--text-color, #333);
-  border-radius: var(--border-radius-sm, 4px);
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 16px;
+  background-color: var(--primary-color, #1677ff);
+  color: white;
+  border-radius: 6px;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: all 0.2s;
 }
 
 .file-label:hover {
-  background-color: var(--secondary-hover-color, #e1e1e1);
+  background-color: var(--primary-hover-color, #4096ff);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 }
 
-.file-label input {
+.file-label input[type="file"] {
   display: none;
 }
 
 .selected-file {
-  margin-top: 10px;
-  padding: 8px 12px;
-  background-color: var(--success-bg-color, #e8f5e9);
-  color: var(--success-color, #4CAF50);
-  border-radius: var(--border-radius-sm, 4px);
-  font-size: var(--font-size-sm, 0.9rem);
+  margin-top: 8px;
+  font-size: 0.85rem;
+  color: var(--success-color, #52c41a);
 }
 
-.action-group, .button-row {
+.action-group {
   display: flex;
   gap: 10px;
-  margin-top: var(--spacing-md, 15px);
+  margin-top: 16px;
+  flex-wrap: wrap;
 }
 
 .btn {
-  padding: 10px 16px;
-  border-radius: 6px;
+  padding: 8px 16px;
   border: none;
-  cursor: pointer;
+  border-radius: 6px;
   font-weight: 500;
-  transition: all 0.3s;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.12);
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
 .primary-btn {
@@ -1240,80 +1215,177 @@ textarea.form-control {
 }
 
 .primary-btn:hover {
-  background-color: var(--primary-hover-color, #0958d9);
+  background-color: var(--primary-hover-color, #4096ff);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 }
 
 .primary-btn:disabled {
-  background-color: var(--disabled-color, #ccc);
+  background-color: var(--disabled-color, #bfbfbf);
   cursor: not-allowed;
-  opacity: 0.7;
   transform: none;
   box-shadow: none;
 }
 
 .secondary-btn {
-  background-color: var(--bg-color-light, #f0f0f0);
+  background-color: var(--secondary-bg-color, #f0f0f0);
   color: var(--text-color, #333);
+  border: 1px solid var(--border-color, #ddd);
 }
 
 .secondary-btn:hover {
-  background-color: var(--bg-color-dark, #e0e0e0);
-}
-
-.text-convert-import {
-  display: flex;
-  flex-direction: column;
-}
-
-.result-stats {
-  font-size: var(--font-size-sm, 0.9rem);
-  color: var(--color-text-secondary, #666);
-}
-
-.export-panel {
-  margin-top: var(--spacing-sm, 10px);
-}
-
-.info-text {
-  font-size: 0.9rem;
-  color: var(--text-color-light, #666);
-  margin-top: 5px;
-}
-
-.import-action {
-  margin-right: 10px;
-  display: inline-block;
+  background-color: var(--secondary-hover-color, #e6e6e6);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
 }
 
 .debug-btn {
-  background-color: #673ab7;
+  background-color: var(--debug-color, #722ed1);
   color: white;
 }
 
 .debug-btn:hover {
-  background-color: #5e35b1;
+  background-color: var(--debug-hover-color, #8a3deb);
+  transform: translateY(-1px);
 }
 
-@media (max-width: 768px) {
+.card {
+  background-color: var(--card-bg-color, #fff);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  margin-bottom: 16px;
+}
+
+.card-header {
+  padding: 12px 16px;
+  background-color: var(--card-header-bg, rgba(0, 0, 0, 0.02));
+  border-bottom: 1px solid var(--border-color-light, #eee);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.card-header h4 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--text-color, #333);
+}
+
+.format-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color-light, #eee);
+}
+
+textarea.form-control {
+  resize: vertical;
+  min-height: 120px;
+  font-family: monospace;
+  padding: 12px;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.button-row {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border-color-light, #eee);
+}
+
+.result-stats {
+  font-size: 0.85rem;
+  color: var(--text-color-light, #666);
+  background-color: var(--tag-bg-color, #f0f0f0);
+  padding: 4px 10px;
+  border-radius: 12px;
+}
+
+/* 暗模式适配 */
+@media (prefers-color-scheme: dark) {
   .section {
-    padding: var(--spacing-md, 15px);
+    background-color: var(--section-bg-color-dark, #252525);
+  }
+  
+  .section h3 {
+    color: var(--text-color-dark, #eee);
+    border-bottom-color: var(--border-color-dark, #333);
+    background-color: var(--section-header-bg-dark, rgba(255, 255, 255, 0.03));
+  }
+  
+  .form-group + .form-group {
+    border-top-color: var(--border-color-dark, #333);
+  }
+  
+  .form-control {
+    background-color: var(--input-bg-color-dark, #333);
+    border-color: var(--border-color-dark, #444);
+    color: var(--text-color-dark, #eee);
+  }
+  
+  .form-control:focus {
+    border-color: var(--primary-color, #1677ff);
+    box-shadow: 0 0 0 2px rgba(22, 119, 255, 0.2);
+  }
+  
+  .radio-item label {
+    color: var(--text-color-dark, #eee);
+  }
+  
+  label {
+    color: var(--text-color-dark, #eee);
+  }
+  
+  .info-text {
+    color: var(--text-color-light-dark, #aaa);
+  }
+  
+  .selected-file {
+    color: var(--success-color-dark, #73d13d);
+  }
+  
+  .secondary-btn {
+    background-color: var(--secondary-bg-color-dark, #2c2c2c);
+    color: var(--text-color-dark, #eee);
+    border-color: var(--border-color-dark, #444);
+  }
+  
+  .secondary-btn:hover {
+    background-color: var(--secondary-hover-color-dark, #3c3c3c);
+  }
+  
+  .primary-btn:disabled {
+    background-color: var(--disabled-color-dark, #4c4c4c);
+  }
+  
+  .card {
+    background-color: var(--card-bg-color-dark, #2a2a2a);
   }
   
   .card-header {
-    flex-direction: column;
-    align-items: flex-start;
+    background-color: var(--card-header-bg-dark, rgba(255, 255, 255, 0.03));
+    border-bottom-color: var(--border-color-dark, #333);
+  }
+  
+  .card-header h4 {
+    color: var(--text-color-dark, #eee);
   }
   
   .format-selector {
-    margin-top: 10px;
+    border-bottom-color: var(--border-color-dark, #333);
   }
   
-  .action-group, .button-row {
-    flex-direction: column;
+  .button-row {
+    border-top-color: var(--border-color-dark, #333);
   }
   
-  .action-group button, .button-row button {
-    width: 100%;
+  .result-stats {
+    color: var(--text-color-dark, #eee);
+    background-color: var(--tag-bg-color-dark, #3a3a3a);
   }
 }
 </style> 

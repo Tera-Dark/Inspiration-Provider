@@ -53,15 +53,20 @@
           <tag-library-panel />
         </div>
         
-        <!-- 设置页面 -->
+        <!-- 工具箱页面 -->
         <div v-show="activeTabIndex === 2" class="page-content">
+          <toolkit-panel />
+        </div>
+        
+        <!-- 设置页面 -->
+        <div v-show="activeTabIndex === 3" class="page-content">
           <div class="settings-page-content">
             <settings-panel />
           </div>
         </div>
         
         <!-- 关于页面 -->
-        <div v-show="activeTabIndex === 3" class="page-content">
+        <div v-show="activeTabIndex === 4" class="page-content">
           <div class="about-page-content">
             <info-panel />
           </div>
@@ -82,6 +87,7 @@ import SettingsPanel from '@/components/settings/SettingsPanel.vue';
 import InfoPanel from '@/components/about/InfoPanel.vue';
 import TagLibraryPanel from '@/components/tag-library/TagLibraryPanel.vue';
 import NotificationSystem from '@/components/common/Notification/NotificationSystem.vue';
+import ToolkitPanel from '@/components/toolkit/ToolkitPanel.vue';
 
 export default defineComponent({
   name: 'HomeView',
@@ -91,7 +97,8 @@ export default defineComponent({
     SettingsPanel,
     InfoPanel,
     TagLibraryPanel,
-    NotificationSystem
+    NotificationSystem,
+    ToolkitPanel
   },
   setup() {
     const emitter = inject('emitter');
@@ -104,6 +111,7 @@ export default defineComponent({
     const tabs = [
       { name: '抽签工具' },
       { name: '标签库管理' },
+      { name: '工具箱' },
       { name: '设置' },
       { name: '关于' }
     ];

@@ -1,6 +1,8 @@
 <template>
-  <div class="panel">
-    <h2>Tag库管理</h2>
+  <div class="tag-library-panel">
+    <div class="panel-header">
+      <h2 class="panel-title">Tag库管理</h2>
+    </div>
     
     <div class="tab-container">
       <div class="tab-buttons">
@@ -45,10 +47,12 @@
         
         <!-- 高级编辑器 -->
         <div class="section">
-          <h3>高级编辑器</h3>
-          <div class="form-group">
+          <div class="section-header">
+            <h3 class="section-title">高级编辑器</h3>
+          </div>
+          <div class="section-content">
             <p class="description">使用高级编辑器可以直接编辑标签库的JSON结构或文本形式</p>
-            <button @click="openAdvancedEditor" class="btn primary-btn">打开高级编辑器</button>
+            <button @click="openAdvancedEditor" class="primary-button">打开高级编辑器</button>
           </div>
         </div>
       </div>
@@ -61,7 +65,7 @@
       <!-- 在线编辑器 -->
       <div class="tab-content" :class="{ active: activeTab === 'editor' }">
         <EditorPanel 
-          :libraries="libraries"
+          :libraries="libraries" 
           :current-library="currentLibrary"
           @library-updated="loadLibraries"
         />
@@ -183,23 +187,26 @@ export default defineComponent({
 </script>
 
 <style scoped>
-.panel {
+.tag-library-panel {
   background-color: var(--panel-bg-color, #ffffff);
   border-radius: 10px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  padding: 25px;
+  padding: 20px;
   height: 100%;
   overflow: hidden;
   display: flex;
   flex-direction: column;
 }
 
-.panel h2 {
-  color: var(--text-color, #333);
-  margin-top: 0;
+.panel-header {
   margin-bottom: 20px;
   padding-bottom: 15px;
   border-bottom: 1px solid var(--border-color, #eee);
+}
+
+.panel-title {
+  color: var(--text-color, #333);
+  margin: 0;
   font-size: 1.5rem;
   font-weight: 600;
 }
@@ -215,12 +222,14 @@ export default defineComponent({
   display: flex;
   margin-bottom: 20px;
   border-bottom: 1px solid var(--border-color-light, #eee);
+  gap: 5px;
 }
 
 .tab-btn {
   padding: 10px 20px;
   background: none;
   border: none;
+  border-radius: 6px 6px 0 0;
   border-bottom: 2px solid transparent;
   color: var(--text-color-light, #666);
   font-weight: 500;
@@ -231,111 +240,171 @@ export default defineComponent({
 .tab-btn.active {
   color: var(--primary-color, #1677ff);
   border-bottom-color: var(--primary-color, #1677ff);
+  background-color: rgba(22, 119, 255, 0.05);
 }
 
 .tab-btn:hover:not(.active) {
   color: var(--text-color-dark, #333);
-  border-bottom-color: var(--border-color, #ddd);
+  background-color: rgba(0, 0, 0, 0.03);
 }
 
 .tab-content {
   display: none;
   flex: 1;
   overflow-y: auto;
+  transition: opacity 0.3s ease;
+  opacity: 0;
 }
 
 .tab-content.active {
   display: block;
+  opacity: 1;
+  animation: fadeIn 0.3s forwards;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .section {
-  background-color: var(--panel-bg-color, #fff);
-  padding: 16px;
+  background-color: var(--section-bg-color, #f9f9f9);
   border-radius: 8px;
   margin-bottom: 20px;
+  overflow: hidden;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
 }
 
-.section h3 {
-  font-size: 1.1rem;
-  margin-top: 0;
-  margin-bottom: 14px;
-  color: var(--text-color-dark, #333);
-  font-weight: 600;
+.section-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color-light, #eee);
+  background-color: var(--section-header-bg, rgba(0, 0, 0, 0.02));
 }
 
-.form-group {
-  margin-bottom: 15px;
+.section-title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: var(--text-color, #333);
+}
+
+.section-content {
+  padding: 16px;
 }
 
 .description {
   color: var(--text-color-light, #666);
-  margin-bottom: 10px;
+  margin-bottom: 15px;
   font-size: 0.9rem;
 }
 
-.btn {
-  display: inline-block;
-  padding: 10px 16px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 500;
-  border: none;
-  transition: all 0.3s;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.12);
-}
-
-.primary-btn {
+/* 按钮样式 */
+.primary-button {
   background-color: var(--primary-color, #1677ff);
   color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
-.primary-btn:hover {
-  background-color: var(--primary-hover-color, #0958d9);
+.primary-button:hover {
+  background-color: var(--primary-hover-color, #4096ff);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 }
 
-/* 深色模式适配 */
-:global(.dark-mode) .panel {
-  background-color: var(--panel-bg-color-dark, #2d2d2d);
+.primary-button:active {
+  transform: translateY(0);
 }
 
-:global(.dark-mode) .panel h2 {
-  color: var(--text-color-dark-mode, #e0e0e0);
-  border-bottom-color: var(--border-color-dark-mode, #3d3d3d);
+.secondary-button {
+  background-color: var(--secondary-bg-color, #f0f0f0);
+  color: var(--text-color, #333);
+  border: 1px solid var(--border-color, #ddd);
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
-:global(.dark-mode) .tab-buttons {
-  border-bottom-color: var(--border-color-dark-mode, #3d3d3d);
+.secondary-button:hover {
+  background-color: var(--secondary-hover-color, #e6e6e6);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
 }
 
-:global(.dark-mode) .tab-btn {
-  color: var(--text-color-light-dark-mode, #aaa);
+.secondary-button:active {
+  transform: translateY(0);
 }
 
-:global(.dark-mode) .tab-btn.active {
-  color: var(--primary-color, #42a5f5);
-  border-bottom-color: var(--primary-color, #42a5f5);
-}
-
-:global(.dark-mode) .tab-btn:hover:not(.active) {
-  color: var(--text-color-dark-mode, #e0e0e0);
-  border-bottom-color: var(--border-color-dark-mode, #4d4d4d);
-}
-
-:global(.dark-mode) .section {
-  background-color: var(--bg-color-light-dark, #333333);
-}
-
-:global(.dark-mode) .section h3 {
-  color: var(--text-color-dark-mode, #e0e0e0);
-}
-
-:global(.dark-mode) .description {
-  color: var(--text-color-light-dark-mode, #aaa);
+/* 暗模式适配 */
+@media (prefers-color-scheme: dark) {
+  .tag-library-panel {
+    background-color: var(--panel-bg-color-dark, #1e1e1e);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  }
+  
+  .panel-header {
+    border-bottom-color: var(--border-color-dark, #333);
+  }
+  
+  .panel-title {
+    color: var(--text-color-dark, #fff);
+  }
+  
+  .tab-buttons {
+    border-bottom-color: var(--border-color-dark, #333);
+  }
+  
+  .tab-btn {
+    color: var(--text-color-light-dark, #aaa);
+  }
+  
+  .tab-btn.active {
+    background-color: rgba(22, 119, 255, 0.15);
+  }
+  
+  .tab-btn:hover:not(.active) {
+    background-color: rgba(255, 255, 255, 0.05);
+  }
+  
+  .section {
+    background-color: var(--section-bg-color-dark, #252525);
+  }
+  
+  .section-header {
+    background-color: var(--section-header-bg-dark, rgba(255, 255, 255, 0.03));
+    border-bottom-color: var(--border-color-dark, #333);
+  }
+  
+  .section-title {
+    color: var(--text-color-dark, #eee);
+  }
+  
+  .description {
+    color: var(--text-color-light-dark, #aaa);
+  }
+  
+  .secondary-button {
+    background-color: var(--secondary-bg-color-dark, #2c2c2c);
+    color: var(--text-color-dark, #eee);
+    border-color: var(--border-color-dark, #444);
+  }
+  
+  .secondary-button:hover {
+    background-color: var(--secondary-hover-color-dark, #3c3c3c);
+  }
 }
 </style> 

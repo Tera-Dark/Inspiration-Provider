@@ -357,37 +357,33 @@ export default defineComponent({
 <style scoped>
 .settings-section {
   background-color: var(--panel-bg-color, #ffffff);
-  border-radius: var(--border-radius-medium, 8px);
-  padding: 1.25rem;
-  margin-bottom: 1.5rem;
-  box-shadow: var(--shadow-small, 0 2px 6px rgba(0, 0, 0, 0.05));
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .section-title {
   margin-top: 0;
-  margin-bottom: 1.25rem;
+  margin-bottom: 20px;
   font-size: 1.1rem;
   font-weight: 600;
   color: var(--text-color, #333);
   border-bottom: 1px solid var(--border-color, #eee);
-  padding-bottom: 0.75rem;
+  padding-bottom: 12px;
 }
 
 .settings-item {
   display: flex;
+  margin-bottom: 20px;
   align-items: flex-start;
-  margin-bottom: 1.25rem;
-}
-
-.settings-item:last-child {
-  margin-bottom: 0;
 }
 
 .setting-label {
   flex: 0 0 120px;
   font-weight: 500;
-  padding-top: 0.25rem;
   color: var(--text-color, #333);
+  padding-top: 4px;
 }
 
 .setting-control {
@@ -395,109 +391,84 @@ export default defineComponent({
 }
 
 .setting-description {
-  margin-top: 0.5rem;
   font-size: 0.85rem;
   color: var(--text-color-light, #666);
+  margin-top: 6px;
 }
 
-.number-input {
-  display: flex;
-  align-items: center;
-  max-width: 120px;
-}
-
-.number-btn {
-  width: 32px;
-  height: 32px;
-  border: 1px solid var(--border-color, #ddd);
-  background-color: var(--bg-color-light, #f5f5f5);
-  color: var(--text-color, #333);
-  font-size: 1.2rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.number-btn:first-child {
-  border-radius: 4px 0 0 4px;
-}
-
-.number-btn:last-child {
-  border-radius: 0 4px 4px 0;
-}
-
-.number-btn:hover {
-  background-color: var(--bg-color, #eee);
-}
-
-.number-field {
-  flex: 1;
-  height: 32px;
-  border: 1px solid var(--border-color, #ddd);
-  border-left: none;
-  border-right: none;
-  text-align: center;
-  font-size: 0.9rem;
-  color: var(--text-color, #333);
-  -moz-appearance: textfield;
-}
-
-.number-field::-webkit-outer-spin-button,
-.number-field::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-
+/* 滑块样式 */
 .slider-container {
   position: relative;
   width: 100%;
   max-width: 300px;
 }
 
-.with-value {
+.slider-container.with-value {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 12px;
 }
 
 .slider {
-  flex: 1;
-  height: 4px;
-  background-color: var(--border-color, #ddd);
-  border-radius: 2px;
-  outline: none;
   -webkit-appearance: none;
-}
-
-.slider:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--slider-bg-color, #e0e0e0);
+  outline: none;
+  transition: all 0.2s;
 }
 
 .slider::-webkit-slider-thumb {
   -webkit-appearance: none;
+  appearance: none;
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background-color: var(--primary-color, #2196F3);
+  background: var(--primary-color, #1677ff);
   cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.slider::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+}
+
+.slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--primary-color, #1677ff);
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: none;
+}
+
+.slider::-moz-range-thumb:hover {
+  transform: scale(1.1);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
 }
 
 .slider-value {
-  flex: 0 0 48px;
-  text-align: right;
-  font-size: 0.9rem;
-  color: var(--text-color, #333);
   font-weight: 500;
+  color: var(--text-color, #333);
+  padding: 4px 8px;
+  border-radius: 4px;
+  background-color: var(--slider-value-bg, #f0f0f0);
+  min-width: 60px;
+  text-align: center;
 }
 
+/* 开关样式 */
 .toggle-switch {
   position: relative;
   display: inline-block;
-  width: 46px;
+  width: 50px;
   height: 24px;
+  margin-top: 2px;
 }
 
 .toggle-switch input {
@@ -513,9 +484,9 @@ export default defineComponent({
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: var(--border-color, #ccc);
-  transition: .4s;
+  background-color: var(--switch-off-color, #ccc);
   border-radius: 24px;
+  transition: 0.4s;
 }
 
 .toggle-slider:before {
@@ -526,90 +497,159 @@ export default defineComponent({
   left: 3px;
   bottom: 3px;
   background-color: white;
-  transition: .4s;
   border-radius: 50%;
+  transition: 0.3s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 input:checked + .toggle-slider {
-  background-color: var(--primary-color, #2196F3);
-}
-
-input:focus + .toggle-slider {
-  box-shadow: 0 0 1px var(--primary-color, #2196F3);
+  background-color: var(--primary-color, #1677ff);
 }
 
 input:checked + .toggle-slider:before {
-  transform: translateX(22px);
+  transform: translateX(26px);
 }
 
+/* 下拉选择器样式 */
 .select-field {
-  width: 100%;
-  max-width: 300px;
-  height: 36px;
-  padding: 0 10px;
+  padding: 8px 12px;
   border: 1px solid var(--border-color, #ddd);
-  border-radius: 4px;
-  background-color: var(--bg-color, #fff);
+  border-radius: 6px;
+  background-color: var(--input-bg-color, #fff);
   color: var(--text-color, #333);
-  font-size: 0.9rem;
+  font-size: 0.95rem;
+  min-width: 200px;
+  transition: all 0.3s;
+  outline: none;
   appearance: none;
-  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 8.825L2.175 5 3 4.175l3 3 3-3L9.825 5 6 8.825z'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
-  background-position: right 10px center;
-  background-size: 16px;
+  background-position: right 12px center;
+  padding-right: 36px;
 }
 
-/* 深色模式 */
-:global(.dark-mode) .settings-section {
-  background-color: var(--panel-bg-color-dark, #1f1f1f);
-  box-shadow: var(--shadow-small-dark, 0 2px 6px rgba(0, 0, 0, 0.2));
+.select-field:focus {
+  border-color: var(--primary-color, #1677ff);
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.1);
 }
 
-:global(.dark-mode) .section-title {
-  color: var(--text-color-dark, #e0e0e0);
-  border-color: var(--border-color-dark, #333);
+.select-field option {
+  padding: 8px;
 }
 
-:global(.dark-mode) .setting-label {
-  color: var(--text-color-dark, #e0e0e0);
+/* 数字控制 */
+.number-input {
+  display: flex;
+  align-items: center;
+  max-width: 150px;
 }
 
-:global(.dark-mode) .setting-description {
-  color: var(--text-color-light-dark, #aaa);
+.number-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border-color, #ddd);
+  background-color: var(--button-bg-color, #f5f5f5);
+  cursor: pointer;
+  font-size: 1.2rem;
+  font-weight: bold;
+  line-height: 1;
+  color: var(--text-color, #333);
+  transition: all 0.2s;
 }
 
-:global(.dark-mode) .number-btn {
-  background-color: var(--bg-color-light-dark, #333);
-  border-color: var(--border-color-dark, #444);
-  color: var(--text-color-dark, #e0e0e0);
+.number-btn:first-child {
+  border-radius: 6px 0 0 6px;
 }
 
-:global(.dark-mode) .number-btn:hover {
-  background-color: var(--bg-color-dark, #444);
+.number-btn:last-child {
+  border-radius: 0 6px 6px 0;
 }
 
-:global(.dark-mode) .number-field {
-  background-color: var(--bg-color-dark, #333);
-  border-color: var(--border-color-dark, #444);
-  color: var(--text-color-dark, #e0e0e0);
+.number-btn:hover {
+  background-color: var(--button-hover-bg-color, #e6e6e6);
 }
 
-:global(.dark-mode) .slider {
-  background-color: var(--border-color-dark, #444);
+.number-btn:active {
+  background-color: var(--button-active-bg-color, #d9d9d9);
 }
 
-:global(.dark-mode) .slider-value {
-  color: var(--text-color-dark, #e0e0e0);
+.number-field {
+  width: 56px;
+  height: 32px;
+  border-top: 1px solid var(--border-color, #ddd);
+  border-bottom: 1px solid var(--border-color, #ddd);
+  border-left: none;
+  border-right: none;
+  text-align: center;
+  font-size: 0.95rem;
+  color: var(--text-color, #333);
+  background-color: var(--input-bg-color, #fff);
+  padding: 0 4px;
+  outline: none;
 }
 
-:global(.dark-mode) .toggle-slider {
-  background-color: var(--border-color-dark, #444);
-}
-
-:global(.dark-mode) .select-field {
-  background-color: var(--bg-color-dark, #333);
-  border-color: var(--border-color-dark, #444);
-  color: var(--text-color-dark, #e0e0e0);
+/* 暗模式适配 */
+@media (prefers-color-scheme: dark) {
+  .settings-section {
+    background-color: var(--panel-bg-color-dark, #1e1e1e);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  }
+  
+  .section-title {
+    color: var(--text-color-dark, #eee);
+    border-bottom-color: var(--border-color-dark, #333);
+  }
+  
+  .setting-label {
+    color: var(--text-color-dark, #eee);
+  }
+  
+  .setting-description {
+    color: var(--text-color-light-dark, #aaa);
+  }
+  
+  .slider {
+    background: var(--slider-bg-color-dark, #444);
+  }
+  
+  .slider-value {
+    color: var(--text-color-dark, #eee);
+    background-color: var(--slider-value-bg-dark, #333);
+  }
+  
+  .toggle-slider {
+    background-color: var(--switch-off-color-dark, #555);
+  }
+  
+  .select-field {
+    background-color: var(--input-bg-color-dark, #333);
+    border-color: var(--border-color-dark, #444);
+    color: var(--text-color-dark, #eee);
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' viewBox='0 0 12 12'%3E%3Cpath fill='%23aaa' d='M6 8.825L2.175 5 3 4.175l3 3 3-3L9.825 5 6 8.825z'/%3E%3C/svg%3E");
+  }
+  
+  .number-btn {
+    background-color: var(--button-bg-color-dark, #333);
+    border-color: var(--border-color-dark, #444);
+    color: var(--text-color-dark, #eee);
+  }
+  
+  .number-btn:hover {
+    background-color: var(--button-hover-bg-color-dark, #444);
+  }
+  
+  .number-btn:active {
+    background-color: var(--button-active-bg-color-dark, #555);
+  }
+  
+  .number-field {
+    background-color: var(--input-bg-color-dark, #333);
+    border-color: var(--border-color-dark, #444);
+    color: var(--text-color-dark, #eee);
+  }
 }
 
 /* 响应式设计 */
@@ -620,8 +660,13 @@ input:checked + .toggle-slider:before {
   
   .setting-label {
     flex: none;
+    margin-bottom: 8px;
+    padding-top: 0;
+  }
+  
+  .select-field {
     width: 100%;
-    margin-bottom: 0.5rem;
+    max-width: 100%;
   }
 }
 </style> 
