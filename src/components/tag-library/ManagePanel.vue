@@ -425,71 +425,68 @@ export default defineComponent({
 .manage-container {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-lg, 20px);
+  gap: 20px;
 }
 
 .section {
-  background-color: var(--panel-bg-color, #fff);
-  border-radius: var(--border-radius-lg, 8px);
-  box-shadow: var(--shadow-md, 0 1px 3px rgba(0, 0, 0, 0.1));
-  padding: var(--spacing-lg, 20px);
-  margin-bottom: var(--spacing-sm, 10px);
+  background-color: var(--section-bg-color, #f9f9f9);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
 }
 
 .section h3 {
-  font-size: var(--font-size-lg, 1.2rem);
+  padding: 12px 16px;
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 500;
   color: var(--text-color, #333);
-  margin-top: 0;
-  margin-bottom: var(--spacing-md, 15px);
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--border-color, #eee);
+  border-bottom: 1px solid var(--border-color-light, #eee);
+  background-color: var(--section-header-bg, rgba(0, 0, 0, 0.02));
 }
 
 .form-group {
-  margin-bottom: var(--spacing-md, 15px);
+  padding: 16px;
+  margin-bottom: 0;
 }
 
 .input-group {
   display: flex;
   gap: 10px;
-  width: 100%;
 }
 
 .form-control {
   flex: 1;
-  padding: 10px 12px;
+  padding: 8px 12px;
   border: 1px solid var(--border-color, #ddd);
-  border-radius: var(--border-radius-sm, 4px);
-  font-size: var(--font-size-md, 1rem);
-  color: var(--text-color, #333);
+  border-radius: 6px;
   background-color: var(--input-bg-color, #fff);
-  transition: border-color 0.2s;
+  color: var(--text-color, #333);
+  font-size: 0.9rem;
+  transition: all 0.3s;
 }
 
 .form-control:focus {
+  border-color: var(--primary-color, #1677ff);
+  box-shadow: 0 0 0 2px rgba(22, 119, 255, 0.1);
   outline: none;
-  border-color: var(--primary-color, #2196F3);
-  box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.2);
 }
 
 .form-control.small {
-  flex: 1;
-  min-width: 0;
+  min-width: 120px;
 }
 
 .btn {
-  padding: 10px 16px;
-  border-radius: 6px;
+  padding: 8px 16px;
   border: none;
-  cursor: pointer;
+  border-radius: 6px;
   font-weight: 500;
-  transition: all 0.3s;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.12);
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
 .primary-btn {
@@ -498,92 +495,89 @@ export default defineComponent({
 }
 
 .primary-btn:hover {
-  background-color: var(--primary-hover-color, #0958d9);
-}
-
-.secondary-btn {
-  background-color: var(--bg-color-light, #f0f0f0);
-  color: var(--text-color, #333);
-}
-
-.secondary-btn:hover {
-  background-color: var(--bg-color-dark, #e0e0e0);
+  background-color: var(--primary-hover-color, #4096ff);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 }
 
 .danger-btn {
-  background-color: var(--error-color, #f5222d);
+  background-color: var(--danger-color, #ff4d4f);
   color: white;
 }
 
 .danger-btn:hover {
-  background-color: #ff4d4f;
+  background-color: var(--danger-hover-color, #ff7875);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 }
 
 .action-btn {
-  background-color: var(--primary-color, #2196F3);
-  color: white;
+  background-color: var(--secondary-bg-color, #f0f0f0);
+  color: var(--text-color, #333);
+  border: 1px solid var(--border-color, #ddd);
 }
 
 .action-btn:hover {
-  background-color: var(--primary-hover-color, #1976D2);
+  background-color: var(--secondary-hover-color, #e6e6e6);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
 }
 
 .action-container {
+  padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-md, 15px);
+  gap: 20px;
 }
 
 .action-section {
-  margin-bottom: var(--spacing-md, 15px);
+  background-color: var(--card-bg-color, #fff);
+  border-radius: 6px;
+  padding: 16px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .action-section h4 {
   margin-top: 0;
-  margin-bottom: var(--spacing-sm, 10px);
-  font-size: var(--font-size-md, 1rem);
-  color: var(--text-color, #333);
+  margin-bottom: 12px;
+  font-size: 1rem;
   font-weight: 500;
+  color: var(--text-color, #333);
 }
 
 .action-controls {
   display: flex;
+  gap: 8px;
   flex-wrap: wrap;
-  gap: 10px;
   align-items: center;
 }
 
 .libraries-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  max-height: 300px;
-  overflow-y: auto;
-  padding: var(--spacing-sm, 8px);
-  border-radius: var(--border-radius-sm, 4px);
-  background-color: var(--list-bg-color, #f5f5f5);
+  margin-top: 20px;
+  border: 1px solid var(--border-color, #eee);
+  border-radius: 6px;
+  overflow: hidden;
 }
 
 .library-item {
+  padding: 10px 16px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 15px;
-  border-radius: var(--border-radius-sm, 4px);
-  background-color: var(--item-bg-color, #ffffff);
-  box-shadow: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.05));
-  cursor: pointer;
-  transition: background-color 0.2s, transform 0.1s;
+  border-bottom: 1px solid var(--border-color, #eee);
+  transition: all 0.2s;
+}
+
+.library-item:last-child {
+  border-bottom: none;
 }
 
 .library-item:hover {
-  background-color: var(--item-hover-bg-color, #f9f9f9);
-  transform: translateY(-1px);
+  background-color: var(--hover-bg-color, rgba(0, 0, 0, 0.02));
 }
 
 .library-item.active {
-  background-color: var(--item-active-bg-color, #e3f2fd);
-  border-left: 3px solid var(--primary-color, #2196F3);
+  background-color: var(--active-bg-color, rgba(22, 119, 255, 0.05));
 }
 
 .library-name {
@@ -592,36 +586,88 @@ export default defineComponent({
 }
 
 .library-count {
-  font-size: var(--font-size-xs, 0.85rem);
+  font-size: 0.85rem;
   color: var(--text-color-light, #666);
-  background-color: var(--count-bg-color, #f1f1f1);
-  padding: 3px 8px;
-  border-radius: 12px;
+  background-color: var(--tag-bg-color, #f0f0f0);
+  padding: 2px 8px;
+  border-radius: 10px;
 }
 
 .empty-message {
-  padding: var(--spacing-md, 15px);
+  padding: 30px 20px;
   text-align: center;
   color: var(--text-color-light, #666);
   font-style: italic;
 }
 
-@media (max-width: 768px) {
+/* 暗模式适配 */
+@media (prefers-color-scheme: dark) {
   .section {
-    padding: var(--spacing-md, 15px);
+    background-color: var(--section-bg-color-dark, #252525);
   }
   
-  .action-controls {
-    flex-direction: column;
-    align-items: stretch;
+  .section h3 {
+    color: var(--text-color-dark, #eee);
+    border-bottom-color: var(--border-color-dark, #333);
+    background-color: var(--section-header-bg-dark, rgba(255, 255, 255, 0.03));
   }
   
-  .input-group {
-    flex-direction: column;
+  .form-control {
+    background-color: var(--input-bg-color-dark, #333);
+    border-color: var(--border-color-dark, #444);
+    color: var(--text-color-dark, #eee);
   }
   
-  .btn {
-    width: 100%;
+  .form-control:focus {
+    border-color: var(--primary-color, #1677ff);
+    box-shadow: 0 0 0 2px rgba(22, 119, 255, 0.2);
+  }
+  
+  .action-btn {
+    background-color: var(--secondary-bg-color-dark, #2c2c2c);
+    color: var(--text-color-dark, #eee);
+    border-color: var(--border-color-dark, #444);
+  }
+  
+  .action-btn:hover {
+    background-color: var(--secondary-hover-color-dark, #3c3c3c);
+  }
+  
+  .action-section {
+    background-color: var(--card-bg-color-dark, #2a2a2a);
+  }
+  
+  .action-section h4 {
+    color: var(--text-color-dark, #eee);
+  }
+  
+  .libraries-list {
+    border-color: var(--border-color-dark, #333);
+  }
+  
+  .library-item {
+    border-bottom-color: var(--border-color-dark, #333);
+  }
+  
+  .library-item:hover {
+    background-color: var(--hover-bg-color-dark, rgba(255, 255, 255, 0.05));
+  }
+  
+  .library-item.active {
+    background-color: var(--active-bg-color-dark, rgba(22, 119, 255, 0.15));
+  }
+  
+  .library-name {
+    color: var(--text-color-dark, #eee);
+  }
+  
+  .library-count {
+    color: var(--text-color-dark, #eee);
+    background-color: var(--tag-bg-color-dark, #3a3a3a);
+  }
+  
+  .empty-message {
+    color: var(--text-color-light-dark, #aaa);
   }
 }
 </style> 

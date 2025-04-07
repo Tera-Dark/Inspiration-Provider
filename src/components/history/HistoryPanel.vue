@@ -45,11 +45,15 @@
               :key="tagIndex"
               class="history-tag"
             >
-              <span class="tag-category">{{ tag.category }}</span>
-              <span class="tag-content">{{ tag.content }}</span>
-              <span v-if="tag.subTitles && tag.subTitles.length > 0" class="tag-subtitle">
-                {{ tag.subTitles.join(' / ') }}
-              </span>
+              <div class="tag-header">
+                <span class="tag-category">{{ tag.category }}</span>
+              </div>
+              <div class="tag-body">
+                <span class="tag-content">{{ tag.content }}</span>
+                <span v-if="tag.subTitles && tag.subTitles.length > 0" class="tag-subtitle">
+                  {{ tag.subTitles.join(' / ') }}
+                </span>
+              </div>
             </div>
           </div>
           
@@ -89,10 +93,26 @@ export default defineComponent({
     // 加载历史记录
     const loadHistory = () => {
       try {
+        console.log('HistoryPanel: 开始加载历史记录');
         const history = tagLibrary.getHistory();
-        historyItems.value = history || [];
+        console.log('HistoryPanel: 从TagLibrary获取到历史记录数量:', history?.length || 0);
+        
+        if (Array.isArray(history)) {
+          historyItems.value = history;
+          console.log('HistoryPanel: 历史记录加载成功，数量:', historyItems.value.length);
+          
+          // 检查历史记录数据的有效性
+          if (history.length > 0) {
+            const sampleItem = history[0];
+            console.log('HistoryPanel: 历史记录示例项:', JSON.stringify(sampleItem).substring(0, 200) + '...');
+          }
+        } else {
+          console.error('HistoryPanel: 获取到的历史记录不是数组');
+          historyItems.value = [];
+        }
       } catch (error) {
-        console.error('加载历史记录失败:', error);
+        console.error('HistoryPanel: 加载历史记录失败:', error);
+        historyItems.value = [];
         emitter.emit('notification', {
           type: 'error',
           message: '加载历史记录失败'
@@ -186,25 +206,49 @@ export default defineComponent({
     
     // 初始加载和事件监听
     onMounted(() => {
-      loadHistory();
+      console.log('HistoryPanel: 组件挂载');
+      // 立即加载历史记录
+      setTimeout(() => {
+        console.log('HistoryPanel: 延迟加载历史记录');
+        loadHistory();
+      }, 500); // 延迟加载以确保TagLibrary已初始化
       
       // 监听历史记录更新事件
       unsubscribeHistory = emitter.on('history-updated', () => {
+        console.log('HistoryPanel: 收到history-updated事件');
         loadHistory();
       });
       
       // 监听抽签完成事件，立即更新历史记录
       unsubscribeTagsDrawn = emitter.on('tags-drawn', () => {
-        loadHistory();
+        console.log('HistoryPanel: 收到tags-drawn事件');
+        setTimeout(() => {
+          console.log('HistoryPanel: 延迟响应tags-drawn事件，开始加载历史记录');
+          loadHistory();
+        }, 200); // 延迟200ms加载，确保历史记录已保存
       });
       
       // 监听来自TagLibrary的CustomEvent
-      const handleHistoryUpdated = () => loadHistory();
+      const handleHistoryUpdated = () => {
+        console.log('HistoryPanel: 收到history-updated自定义事件');
+        setTimeout(() => {
+          console.log('HistoryPanel: 延迟响应CustomEvent，开始加载历史记录');
+          loadHistory();
+        }, 200);
+      };
       window.addEventListener('history-updated', handleHistoryUpdated);
+      
+      // 每隔30秒自动刷新一次历史记录，确保数据同步
+      const autoRefreshInterval = setInterval(() => {
+        console.log('HistoryPanel: 触发自动刷新历史记录');
+        loadHistory();
+      }, 30000);
       
       // 记住清理函数
       customEventCleanup = () => {
+        console.log('HistoryPanel: 清理事件监听');
         window.removeEventListener('history-updated', handleHistoryUpdated);
+        clearInterval(autoRefreshInterval);
       };
     });
     
@@ -336,6 +380,8 @@ export default defineComponent({
   background-color: var(--bg-color-light, #f8f8f8);
   transition: transform 0.2s, box-shadow 0.2s;
   height: fit-content;
+  overflow: hidden;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
 }
 
 .history-item:hover {
@@ -403,34 +449,65 @@ export default defineComponent({
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  overflow: hidden;
 }
 
 .history-tag {
   display: flex;
-  align-items: baseline;
-  gap: 0.5rem;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 0.25rem;
+  word-break: break-word;
+  width: 100%;
+  margin-bottom: 0.5rem;
+  background-color: var(--bg-color-light, #f0f0f0);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.tag-header {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.tag-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem 0.5rem 0.5rem;
 }
 
 .tag-category {
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--primary-color, #2196F3);
-  background-color: var(--primary-color-light, #e3f2fd);
-  padding: 0.15rem 0.5rem;
-  border-radius: 100px;
+  background-color: var(--primary-bg-light, rgba(33, 150, 243, 0.1));
+  padding: 0.2rem 0.6rem;
+  border-radius: 0;
+  width: 100%;
+  display: block;
+  flex-shrink: 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
 }
 
 .tag-content {
   font-size: 1rem;
   font-weight: 500;
   color: var(--text-color, #333);
+  overflow-wrap: break-word;
+  max-width: 100%;
+  line-height: 1.4;
+  padding: 0 0.25rem;
 }
 
 .tag-subtitle {
   font-size: 0.85rem;
   color: var(--text-color-light, #666);
   font-style: italic;
+  overflow-wrap: break-word;
+  max-width: 100%;
+  line-height: 1.3;
+  padding: 0 0.25rem;
 }
 
 .history-options {
@@ -440,6 +517,7 @@ export default defineComponent({
   border-top: 1px solid var(--border-color, #eee);
   padding-top: 12px;
   margin-top: 4px;
+  overflow: hidden;
 }
 
 .option-label {
@@ -465,6 +543,10 @@ export default defineComponent({
   padding: 4px 8px;
   border-radius: var(--border-radius-small, 4px);
   border: 1px solid var(--border-color, #eee);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .option-icon {
@@ -520,8 +602,13 @@ export default defineComponent({
   background-color: var(--bg-color-dark, #333);
 }
 
+:global(.dark-mode) .history-tag {
+  background-color: var(--bg-color-dark, #222);
+}
+
 :global(.dark-mode) .tag-category {
-  background-color: rgba(33, 150, 243, 0.15);
+  background-color: var(--primary-bg-dark, rgba(33, 150, 243, 0.15));
+  border-bottom-color: rgba(255, 255, 255, 0.05);
 }
 
 :global(.dark-mode) .tag-content {
@@ -532,7 +619,7 @@ export default defineComponent({
   color: var(--text-color-light-dark, #aaa);
 }
 
-/* 响应式设计 */
+/* 移动端优化 */
 @media (max-width: 768px) {
   .history-header {
     padding: 0.5rem 0.75rem;
@@ -560,13 +647,50 @@ export default defineComponent({
   .tag-content {
     font-size: 0.95rem;
   }
+  
+  .option-item {
+    white-space: normal;
+    word-break: break-word;
+  }
+  
+  .history-tags {
+    padding: 0.5rem 0.75rem;
+  }
+  
+  .tag-category {
+    font-size: 0.7rem;
+    padding: 0.1rem 0.4rem;
+  }
 }
 
-/* 更大屏幕下的历史记录布局优化 */
+/* 中等屏幕优化 */
+@media (min-width: 769px) and (max-width: 991px) {
+  .history-list {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  }
+  
+  .history-item {
+    padding: 0.75rem;
+  }
+}
+
+/* 更大屏幕优化 */
 @media (min-width: 992px) {
   .history-list {
     grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
     gap: 1rem;
+  }
+  
+  .history-item {
+    padding: 1rem;
+  }
+}
+
+/* 超大屏幕优化 */
+@media (min-width: 1400px) {
+  .history-list {
+    grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+    gap: 1.25rem;
   }
 }
 </style> 

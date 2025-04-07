@@ -1,21 +1,25 @@
 <template>
   <div id="app" :class="{ 'dark-mode': isDarkMode }">
     <home-view />
+    <library-status-bar v-if="showLibraryBar" class="library-status-bar" />
   </div>
 </template>
 
 <script>
 import { defineComponent, ref, inject, onMounted } from 'vue';
 import HomeView from '@/views/home/Home.vue';
+import LibraryStatusBar from './components/common/LibraryStatusBar.vue';
 
 export default defineComponent({
   name: 'App',
   components: {
-    HomeView
+    HomeView,
+    LibraryStatusBar
   },
   setup() {
     const isDarkMode = ref(false);
     const emitter = inject('emitter');
+    const showLibraryBar = ref(true);
     
     // 获取较深的颜色
     const getDarkerColor = (hex, percent) => {
@@ -121,7 +125,8 @@ export default defineComponent({
     });
     
     return {
-      isDarkMode
+      isDarkMode,
+      showLibraryBar
     };
   }
 });
@@ -182,5 +187,18 @@ body {
 
 .dark-mode ::-webkit-scrollbar-thumb:hover {
   background: var(--border-color-dark-mode, #444444);
+}
+
+/* 添加库状态栏样式 */
+.library-status-bar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  width: 100%;
+}
+
+/* 调整内容区域以适应库状态栏 */
+.app-content {
+  margin-top: 50px;
 }
 </style> 

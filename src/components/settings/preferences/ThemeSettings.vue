@@ -248,37 +248,33 @@ export default defineComponent({
 <style scoped>
 .settings-section {
   background-color: var(--panel-bg-color, #ffffff);
-  border-radius: var(--border-radius-medium, 8px);
-  padding: 1.25rem;
-  margin-bottom: 1.5rem;
-  box-shadow: var(--shadow-small, 0 2px 6px rgba(0, 0, 0, 0.05));
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .section-title {
   margin-top: 0;
-  margin-bottom: 1.25rem;
+  margin-bottom: 20px;
   font-size: 1.1rem;
   font-weight: 600;
   color: var(--text-color, #333);
   border-bottom: 1px solid var(--border-color, #eee);
-  padding-bottom: 0.75rem;
+  padding-bottom: 12px;
 }
 
 .settings-item {
   display: flex;
+  margin-bottom: 20px;
   align-items: flex-start;
-  margin-bottom: 1.25rem;
-}
-
-.settings-item:last-child {
-  margin-bottom: 0;
 }
 
 .setting-label {
   flex: 0 0 120px;
   font-weight: 500;
-  padding-top: 0.25rem;
   color: var(--text-color, #333);
+  padding-top: 4px;
 }
 
 .setting-control {
@@ -286,90 +282,122 @@ export default defineComponent({
 }
 
 .setting-description {
-  margin-top: 0.5rem;
   font-size: 0.85rem;
   color: var(--text-color-light, #666);
+  margin-top: 6px;
 }
 
+/* 滑块样式 */
 .slider-container {
   position: relative;
   width: 100%;
   max-width: 300px;
 }
 
-.with-value {
+.slider-container.with-value {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 12px;
 }
 
 .slider {
-  flex: 1;
-  height: 4px;
-  background-color: var(--border-color, #ddd);
-  border-radius: 2px;
-  outline: none;
   -webkit-appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--slider-bg-color, #e0e0e0);
+  outline: none;
+  transition: all 0.2s;
 }
 
 .slider::-webkit-slider-thumb {
   -webkit-appearance: none;
+  appearance: none;
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background-color: var(--primary-color, #2196F3);
+  background: var(--primary-color, #1677ff);
   cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.slider::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+}
+
+.slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--primary-color, #1677ff);
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: none;
+}
+
+.slider::-moz-range-thumb:hover {
+  transform: scale(1.1);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
 }
 
 .slider-value {
-  flex: 0 0 48px;
-  text-align: right;
-  font-size: 0.9rem;
-  color: var(--text-color, #333);
   font-weight: 500;
+  color: var(--text-color, #333);
+  padding: 4px 8px;
+  border-radius: 4px;
+  background-color: var(--slider-value-bg, #f0f0f0);
+  min-width: 60px;
+  text-align: center;
 }
 
+/* 色彩选择器 */
 .color-picker {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-  max-width: 300px;
+  margin-bottom: 8px;
 }
 
 .color-swatch {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
   cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition: all 0.2s;
   position: relative;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .color-swatch:hover {
-  transform: scale(1.1);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
 }
 
 .color-swatch.active {
-  box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--primary-color, #2196F3);
+  box-shadow: 0 0 0 2px var(--primary-color, #1677ff);
 }
 
 .color-swatch.active::after {
-  content: "✓";
+  content: '✓';
   position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
   color: white;
-  font-size: var(--font-size-md, 16px);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  font-size: 16px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
+/* 开关样式 */
 .toggle-switch {
   position: relative;
   display: inline-block;
-  width: 46px;
+  width: 50px;
   height: 24px;
+  margin-top: 2px;
 }
 
 .toggle-switch input {
@@ -385,9 +413,9 @@ export default defineComponent({
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: var(--border-color, #ccc);
-  transition: .4s;
+  background-color: var(--switch-off-color, #ccc);
   border-radius: 24px;
+  transition: 0.4s;
 }
 
 .toggle-slider:before {
@@ -398,55 +426,59 @@ export default defineComponent({
   left: 3px;
   bottom: 3px;
   background-color: white;
-  transition: .4s;
   border-radius: 50%;
+  transition: 0.3s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 input:checked + .toggle-slider {
-  background-color: var(--primary-color, #2196F3);
-}
-
-input:focus + .toggle-slider {
-  box-shadow: 0 0 1px var(--primary-color, #2196F3);
+  background-color: var(--primary-color, #1677ff);
 }
 
 input:checked + .toggle-slider:before {
-  transform: translateX(22px);
+  transform: translateX(26px);
 }
 
-/* 深色模式 */
-:global(.dark-mode) .settings-section {
-  background-color: var(--panel-bg-color-dark, #1f1f1f);
-  box-shadow: var(--shadow-small-dark, 0 2px 6px rgba(0, 0, 0, 0.2));
-}
-
-:global(.dark-mode) .section-title {
-  color: var(--text-color-dark, #e0e0e0);
-  border-color: var(--border-color-dark, #333);
-}
-
-:global(.dark-mode) .setting-label {
-  color: var(--text-color-dark, #e0e0e0);
-}
-
-:global(.dark-mode) .setting-description {
-  color: var(--text-color-light-dark, #aaa);
-}
-
-:global(.dark-mode) .slider {
-  background-color: var(--border-color-dark, #444);
-}
-
-:global(.dark-mode) .slider-value {
-  color: var(--text-color-dark, #e0e0e0);
-}
-
-:global(.dark-mode) .color-swatch.active {
-  box-shadow: 0 0 0 2px #333, 0 0 0 4px var(--primary-color, #2196F3);
-}
-
-:global(.dark-mode) .toggle-slider {
-  background-color: var(--border-color-dark, #444);
+/* 暗模式适配 */
+@media (prefers-color-scheme: dark) {
+  .settings-section {
+    background-color: var(--panel-bg-color-dark, #1e1e1e);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  }
+  
+  .section-title {
+    color: var(--text-color-dark, #eee);
+    border-bottom-color: var(--border-color-dark, #333);
+  }
+  
+  .setting-label {
+    color: var(--text-color-dark, #eee);
+  }
+  
+  .setting-description {
+    color: var(--text-color-light-dark, #aaa);
+  }
+  
+  .slider {
+    background: var(--slider-bg-color-dark, #444);
+  }
+  
+  .slider-value {
+    color: var(--text-color-dark, #eee);
+    background-color: var(--slider-value-bg-dark, #333);
+  }
+  
+  .toggle-slider {
+    background-color: var(--switch-off-color-dark, #555);
+  }
+  
+  .color-swatch {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  }
+  
+  .color-swatch:hover {
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4);
+  }
 }
 
 /* 响应式设计 */
@@ -457,8 +489,8 @@ input:checked + .toggle-slider:before {
   
   .setting-label {
     flex: none;
-    width: 100%;
-    margin-bottom: 0.5rem;
+    margin-bottom: 8px;
+    padding-top: 0;
   }
 }
 </style> 

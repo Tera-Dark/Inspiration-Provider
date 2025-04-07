@@ -82,23 +82,16 @@ export default defineComponent({
 @media (max-width: 768px) {
   .drawer-panel {
     flex-direction: column;
+    gap: 1rem;
     padding: 1rem;
-    gap: 1.5rem;
-    min-height: 50vh;
-    max-height: none;
   }
-  
+
   .drawer-settings-panel {
-    flex: none;
-    max-width: none;
-    width: 100%;
-    margin-bottom: 1rem;
-    min-height: auto;
+    min-width: 100%;
+    max-width: 100%;
   }
-  
+
   .drawer-results-panel {
-    flex: none;
-    width: 100%;
     min-height: 300px;
   }
 }

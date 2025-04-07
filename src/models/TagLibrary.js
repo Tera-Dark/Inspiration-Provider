@@ -19,12 +19,15 @@ class TagLibrary {
   /**
    * 构造函数
    * @param {Object} exampleTags - 示例标签数据
+   * @param {Object} emitter - 事件发射器
    */
-  constructor(exampleTags = {}) {
+  constructor(exampleTags = {}, emitter = null) {
     this.libraries = {};
     this.currentLibraryName = CONFIG.DEFAULTS.LIBRARY_NAME;
-    this.exampleTags = exampleTags;
     this.drawnHistory = [];
+    
+    // 保存事件发射器
+    this.emitter = emitter;
     
     // 缓存机制
     this.categoryCache = new Map(); // 用于缓存已加载的分类数据
@@ -41,15 +44,53 @@ class TagLibrary {
    * @private
    */
   _init() {
-    // 从本地存储加载标签库元数据
-    this._loadLibraryMetadata();
-    
-    // 如果没有库，使用示例标签库作为默认库
-    if (Object.keys(this.libraries).length === 0) {
-      this.libraries = {
-        [CONFIG.DEFAULTS.LIBRARY_NAME]: this.exampleTags
-      };
-      this._saveToStorage();
+    try {
+      // 从本地存储加载标签库元数据
+      this._loadLibraryMetadata();
+      
+      // 如果没有库，使用 public/default.json 作为默认库
+      if (Object.keys(this.libraries).length === 0) {
+        // 使用 fetch 加载 public/default.json
+        fetch('/default.json')
+          .then(response => response.json())
+          .then(defaultData => {
+            this.libraries = {
+              'default': defaultData
+            };
+            this.currentLibraryName = 'default';
+            this._saveToStorage();
+          })
+          .catch(error => {
+            console.error('加载默认标签库失败:', error);
+            // 如果加载失败，使用空对象作为默认库
+            this.libraries = {
+              'default': {}
+            };
+            this.currentLibraryName = 'default';
+            this._saveToStorage();
+          });
+      }
+      
+      // 移除"默认标签库"
+      if (this.libraries['默认标签库']) {
+        delete this.libraries['默认标签库'];
+        this._saveToStorage();
+      }
+      
+      // 确保当前库名有效
+      if (!this.libraries[this.currentLibraryName]) {
+        this.currentLibraryName = 'default';
+        this._saveToStorage();
+      }
+    } catch (error) {
+      console.error('初始化标签库失败:', error);
+      // 发送错误通知
+      if (this.emitter) {
+        this.emitter.emit('notification', {
+          type: 'error',
+          message: '初始化标签库失败: ' + error.message
+        });
+      }
     }
   }
 
@@ -86,6 +127,56 @@ class TagLibrary {
    * @private
    */
   _loadChunkedLibraryMetadata() {
+    console.log('尝试从分块存储加载数据');
+    
+    // 首先尝试加载历史记录，优先使用HISTORY键
+    try {
+      const historyData = localStorage.getItem(CONFIG.STORAGE_KEYS.HISTORY);
+      if (historyData) {
+        try {
+          const parsedHistory = JSON.parse(historyData);
+          if (Array.isArray(parsedHistory)) {
+            this.drawnHistory = parsedHistory;
+            console.log('分块存储: 从HISTORY键加载历史记录成功，数量:', this.drawnHistory.length);
+          } else {
+            console.warn('分块存储: HISTORY键中的数据不是数组');
+            this.drawnHistory = [];
+          }
+        } catch (parseError) {
+          console.error('分块存储: 解析HISTORY键数据失败:', parseError);
+          this.drawnHistory = [];
+        }
+      } else {
+        console.log('分块存储: HISTORY键中没有数据，尝试从备份加载');
+        // 尝试从备份加载
+        const backupHistoryData = localStorage.getItem(`${CONFIG.STORAGE_KEYS.TAG_LIBRARIES}_history`);
+        if (backupHistoryData) {
+          try {
+            const { drawnHistory } = JSON.parse(backupHistoryData);
+            if (Array.isArray(drawnHistory)) {
+              this.drawnHistory = drawnHistory;
+              console.log('分块存储: 从备份加载历史记录成功，数量:', this.drawnHistory.length);
+              
+              // 同步到主键
+              localStorage.setItem(CONFIG.STORAGE_KEYS.HISTORY, JSON.stringify(this.drawnHistory));
+            } else {
+              console.warn('分块存储: 备份中的历史记录不是数组');
+              this.drawnHistory = [];
+            }
+          } catch (backupError) {
+            console.error('分块存储: 解析备份历史记录失败:', backupError);
+            this.drawnHistory = [];
+          }
+        } else {
+          console.log('分块存储: 没有找到历史记录数据，使用空数组');
+          this.drawnHistory = [];
+        }
+      }
+    } catch (historyError) {
+      console.error('分块存储: 加载历史记录失败:', historyError);
+      this.drawnHistory = [];
+    }
+    
     // 加载库名列表
     const libNamesData = localStorage.getItem(`${CONFIG.STORAGE_KEYS.TAG_LIBRARIES}_libNames`);
     if (!libNamesData) {
@@ -106,14 +197,7 @@ class TagLibrary {
         this.currentLibraryName = CONFIG.DEFAULTS.LIBRARY_NAME;
       }
       
-      // 加载历史记录
-      const historyData = localStorage.getItem(`${CONFIG.STORAGE_KEYS.TAG_LIBRARIES}_history`);
-      if (historyData) {
-        const { drawnHistory } = JSON.parse(historyData);
-        this.drawnHistory = drawnHistory || [];
-      } else {
-        this.drawnHistory = [];
-      }
+      // 不再从这里加载历史记录，已在方法开始时加载
       
       // 初始化库元数据
       for (const libName of libraryNames) {
@@ -135,6 +219,7 @@ class TagLibrary {
         this.currentLibraryName = CONFIG.DEFAULTS.LIBRARY_NAME;
       }
       
+      console.log('分块存储数据加载完成');
       return true;
     } catch (error) {
       console.error('解析分块存储元数据失败:', error);
@@ -381,59 +466,127 @@ class TagLibrary {
    */
   _loadFromStorage() {
     try {
-      // 尝试从localStorage加载数据
-      const storageData = localStorage.getItem(CONFIG.STORAGE_KEYS.TAG_LIBRARIES);
-      if (storageData) {
-        console.time('从存储加载标签库数据');
-        const parsedData = JSON.parse(storageData);
-        this.libraries = parsedData.libraries || {};
-        this.currentLibraryName = parsedData.currentLibraryName || CONFIG.DEFAULTS.LIBRARY_NAME;
-        this.drawnHistory = parsedData.drawnHistory || [];
+      // 首先尝试从单独的存储加载历史记录
+      try {
+        const historyData = localStorage.getItem(CONFIG.STORAGE_KEYS.HISTORY);
+        if (historyData) {
+          this.drawnHistory = JSON.parse(historyData);
+          console.log('从单独存储加载历史记录成功，数量:', this.drawnHistory.length);
+        } else {
+          this.drawnHistory = [];
+        }
+      } catch (historyError) {
+        console.error('从单独存储加载历史记录失败:', historyError);
+        this.drawnHistory = [];
+      }
+      
+      // 尝试从localStorage加载库数据
+      const storedData = localStorage.getItem(CONFIG.STORAGE_KEYS.TAG_LIBRARIES);
+      
+      if (storedData) {
+        const data = JSON.parse(storedData);
         
-        // 确保默认库存在
-        if (!this.libraries[CONFIG.DEFAULTS.LIBRARY_NAME]) {
-          this.libraries[CONFIG.DEFAULTS.LIBRARY_NAME] = this.exampleTags;
+        // 加载库数据
+        this.libraries = data.libraries || {};
+        
+        // 移除"默认标签库"
+        if (this.libraries['默认标签库']) {
+          delete this.libraries['默认标签库'];
         }
         
-        // 记录加载的库和标签数量（诊断信息）
-        const libraryCount = Object.keys(this.libraries).length;
-        let totalTagCount = 0;
-        for (const libName in this.libraries) {
-          const lib = this.libraries[libName];
-          for (const category in lib) {
-            if (Array.isArray(lib[category])) {
-              totalTagCount += lib[category].length;
-            }
+        // 确保 default 库存在
+        if (!this.libraries.default) {
+          // 使用 fetch 加载 public/default.json
+          fetch('/default.json')
+            .then(response => response.json())
+            .then(defaultData => {
+              this.libraries.default = defaultData;
+              this._saveToStorage();
+            })
+            .catch(error => {
+              console.error('加载默认标签库失败:', error);
+              this.libraries.default = {};
+              this._saveToStorage();
+            });
+        }
+        
+        // 设置当前库名
+        this.currentLibraryName = data.currentLibraryName || 'default';
+        
+        // 确保当前库名有效
+        if (!this.libraries[this.currentLibraryName]) {
+          this.currentLibraryName = 'default';
+        }
+        
+        // 如果之前没有从单独存储加载到历史记录，尝试从主数据中恢复
+        if ((!this.drawnHistory || this.drawnHistory.length === 0) && data.drawnHistory) {
+          this.drawnHistory = data.drawnHistory;
+          console.log('从主数据中恢复历史记录，数量:', this.drawnHistory.length);
+          
+          // 立即保存到单独存储中
+          try {
+            localStorage.setItem(CONFIG.STORAGE_KEYS.HISTORY, JSON.stringify(this.drawnHistory));
+          } catch (saveError) {
+            console.error('将恢复的历史记录保存到单独存储失败:', saveError);
           }
         }
-        
-        console.log(`从存储加载了 ${libraryCount} 个标签库，共 ${totalTagCount} 个标签`);
-        console.timeEnd('从存储加载标签库数据');
-        
-        // 检查当前选择的库是否存在，如果不存在则切换到默认库
-        if (!this.libraries[this.currentLibraryName]) {
-          this.currentLibraryName = CONFIG.DEFAULTS.LIBRARY_NAME;
-        }
-        
-        return true;
+      } else {
+        // 如果没有存储数据，使用 public/default.json 作为默认数据
+        fetch('/default.json')
+          .then(response => response.json())
+          .then(defaultData => {
+            this.libraries = { 'default': defaultData };
+            this.currentLibraryName = 'default';
+            this.drawnHistory = [];
+            this._saveToStorage();
+          })
+          .catch(error => {
+            console.error('加载默认标签库失败:', error);
+            this.libraries = { 'default': {} };
+            this.currentLibraryName = 'default';
+            this.drawnHistory = [];
+            this._saveToStorage();
+          });
       }
+      
+      // 保存更改
+      this._saveToStorage();
+      
+      // 触发更新事件
+      if (this.emitter) {
+        this.emitter.emit('tagLibraryUpdated');
+      }
+      
+      return true;
     } catch (error) {
-      console.error('从存储加载标签库数据失败:', error);
-      // 发出加载失败的通知
-      if (typeof window !== 'undefined' && window.dispatchEvent) {
-        window.dispatchEvent(new CustomEvent('tagLibrary-load-error', {
-          detail: { error: error.message }
-        }));
+      console.error('加载标签库数据失败:', error);
+      // 发送错误通知
+      if (this.emitter) {
+        this.emitter.emit('notification', {
+          type: 'error',
+          message: '加载标签库数据失败: ' + error.message
+        });
       }
+      
+      // 恢复到默认状态
+      fetch('/default.json')
+        .then(response => response.json())
+        .then(defaultData => {
+          this.libraries = { 'default': defaultData };
+          this.currentLibraryName = 'default';
+          this.drawnHistory = [];
+          this._saveToStorage();
+        })
+        .catch(error => {
+          console.error('加载默认标签库失败:', error);
+          this.libraries = { 'default': {} };
+          this.currentLibraryName = 'default';
+          this.drawnHistory = [];
+          this._saveToStorage();
+        });
+      
+      return false;
     }
-    
-    // 如果加载失败或没有存储数据，使用默认库
-    this.libraries = {};
-    this.libraries[CONFIG.DEFAULTS.LIBRARY_NAME] = this.exampleTags;
-    this.currentLibraryName = CONFIG.DEFAULTS.LIBRARY_NAME;
-    this.drawnHistory = [];
-    
-    return false;
   }
 
   /**
@@ -444,11 +597,21 @@ class TagLibrary {
     try {
       console.time('保存标签库数据到存储');
       
+      // 首先，单独保存历史记录，确保不会丢失
+      try {
+        if (this.drawnHistory && Array.isArray(this.drawnHistory)) {
+          localStorage.setItem(CONFIG.STORAGE_KEYS.HISTORY, JSON.stringify(this.drawnHistory));
+          console.log('历史记录已单独保存，数量:', this.drawnHistory.length);
+        }
+      } catch (historyError) {
+        console.error('保存历史记录失败:', historyError);
+      }
+      
       // 使用批处理方式保存数据，减少浏览器渲染阻塞
       const data = {
         libraries: this.libraries,
-        currentLibraryName: this.currentLibraryName,
-        drawnHistory: this.drawnHistory
+        currentLibraryName: this.currentLibraryName
+        // 不再包含drawnHistory，已单独保存
       };
       
       // 记录最近使用的库到单独的存储项
@@ -480,8 +643,7 @@ class TagLibrary {
         try {
           const data = {
             libraries: this.libraries,
-            currentLibraryName: this.currentLibraryName,
-            drawnHistory: this.drawnHistory
+            currentLibraryName: this.currentLibraryName
           };
           this._optimizeStorage(data);
           
@@ -506,28 +668,67 @@ class TagLibrary {
   }
   
   /**
-   * 通知标签库更新
+   * 通知库更新
    * @private
    */
   _notifyLibraryUpdated() {
+    console.log('TagLibrary._notifyLibraryUpdated 被调用，准备发送更新通知');
+    
+    // 标记最近一次更新时间
+    this._lastUpdateTime = Date.now();
+    
     // 使用全局事件和防抖来减少重复通知
     if (typeof window !== 'undefined' && window.dispatchEvent) {
       // 清除之前可能存在的定时器
       if (this._updateTimer) {
+        console.log('TagLibrary: 清除之前的更新定时器');
         clearTimeout(this._updateTimer);
       }
       
       // 设置新的定时器，确保短时间内的多次更改只触发一次更新事件
+      // 增加防抖时间到500毫秒
       this._updateTimer = setTimeout(() => {
-        console.log('TagLibrary: 触发全局标签库更新事件');
-        window.dispatchEvent(new CustomEvent('tagLibraryUpdated'));
+        // 检查在延迟期间是否有新的更新
+        const elapsed = Date.now() - this._lastUpdateTime;
+        if (elapsed < 450) {  // 如果在最近450ms内有新更新，不触发事件
+          console.log(`TagLibrary: 在防抖期间有新更新(${elapsed}ms前)，跳过本次通知`);
+          return;
+        }
+        
+        console.log('TagLibrary: 触发全局标签库更新事件 (延迟后)');
+        window.dispatchEvent(new CustomEvent('tagLibraryUpdated', {
+          detail: { timestamp: Date.now() }
+        }));
+        
+        // 如果存在 emitter，直接使用 emitter 发送事件
+        if (this.emitter) {
+          console.log('TagLibrary: 通过 emitter 发送 tagLibraryUpdated 事件');
+          this.emitter.emit('tagLibraryUpdated', { timestamp: Date.now() });
+        } else {
+          console.warn('TagLibrary: emitter 未定义，无法发送事件');
+        }
         
         // 更新标记，表示库已经修改
         this._isLibraryModified = true;
         
         // 清除定时器引用
         this._updateTimer = null;
-      }, 50);
+      }, 500);
+    } else if (this.emitter) {
+      // 如果不存在 window 对象但存在 emitter，直接使用 emitter
+      console.log('TagLibrary: 在非浏览器环境通过 emitter 发送 tagLibraryUpdated 事件');
+      
+      // 在非浏览器环境也应用防抖
+      if (this._updateTimer) {
+        clearTimeout(this._updateTimer);
+      }
+      
+      this._updateTimer = setTimeout(() => {
+        this.emitter.emit('tagLibraryUpdated', { timestamp: Date.now() });
+        this._updateTimer = null;
+      }, 500);
+    } else {
+      console.warn('TagLibrary: 无法发送更新通知，window.dispatchEvent 和 emitter 均不可用');
     }
   }
   
@@ -537,8 +738,26 @@ class TagLibrary {
    * @param {Object} data - 要存储的数据对象
    */
   _optimizeStorage(data) {
+    console.log('开始执行存储优化');
+    
+    // 单独存储历史记录，优先使用HISTORY键
+    try {
+      if (this.drawnHistory && Array.isArray(this.drawnHistory)) {
+        localStorage.setItem(CONFIG.STORAGE_KEYS.HISTORY, JSON.stringify(this.drawnHistory));
+        console.log('分块存储: 历史记录已单独保存到HISTORY键');
+      }
+    } catch (historyError) {
+      console.error('分块存储: 保存历史记录失败:', historyError);
+    }
+    
     // 分离历史记录和库数据，单独存储
-    localStorage.setItem(`${CONFIG.STORAGE_KEYS.TAG_LIBRARIES}_history`, JSON.stringify({ drawnHistory: data.drawnHistory }));
+    try {
+      localStorage.setItem(`${CONFIG.STORAGE_KEYS.TAG_LIBRARIES}_history`, JSON.stringify({ drawnHistory: this.drawnHistory }));
+      console.log('分块存储: 历史记录已备份到TAG_LIBRARIES_history键');
+    } catch (historyError) {
+      console.error('分块存储: 备份历史记录失败:', historyError);
+    }
+    
     localStorage.setItem(`${CONFIG.STORAGE_KEYS.TAG_LIBRARIES}_meta`, JSON.stringify({ 
       currentLibraryName: data.currentLibraryName 
     }));
@@ -563,6 +782,7 @@ class TagLibrary {
     
     // 标记使用了分块存储模式
     localStorage.setItem(`${CONFIG.STORAGE_KEYS.TAG_LIBRARIES}_mode`, 'chunked');
+    console.log('存储优化完成，使用分块存储模式');
   }
   
   /**
@@ -658,7 +878,15 @@ class TagLibrary {
    * @returns {Array} 库名称数组
    */
   getLibraryNames() {
-    return Object.keys(this.libraries).sort();
+    // 获取所有库名并排序，但排除"默认标签库"
+    return Object.keys(this.libraries)
+      .filter(name => name !== '默认标签库')
+      .sort((a, b) => {
+        // 确保 default 总是排在第一位
+        if (a === 'default') return -1;
+        if (b === 'default') return 1;
+        return a.localeCompare(b);
+      });
   }
 
   /**
@@ -776,6 +1004,8 @@ class TagLibrary {
    */
   addToHistory(tags, options = {}) {
     if (Array.isArray(tags) && tags.length > 0) {
+      console.log('添加历史记录，标签数量:', tags.length);
+      
       // 添加唯一ID
       const historyItem = {
         id: `hist_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
@@ -785,7 +1015,14 @@ class TagLibrary {
         options: options
       };
       
+      // 确保drawnHistory是数组
+      if (!Array.isArray(this.drawnHistory)) {
+        console.warn('历史记录不是数组，重置为空数组');
+        this.drawnHistory = [];
+      }
+      
       this.drawnHistory.unshift(historyItem);
+      console.log('添加后历史记录数量:', this.drawnHistory.length);
       
       // 限制历史记录数量，根据设置的最大值
       const maxHistorySize = options.maxHistoryCount || 20;
@@ -793,12 +1030,46 @@ class TagLibrary {
         this.drawnHistory = this.drawnHistory.slice(0, maxHistorySize);
       }
       
+      // 保存到存储前先确认drawnHistory是有效数组
+      if (!Array.isArray(this.drawnHistory)) {
+        console.error('保存前发现drawnHistory不是数组，修正为空数组');
+        this.drawnHistory = [];
+      }
+      
+      // 强制立即单独保存历史记录，确保不会丢失
+      try {
+        localStorage.setItem(CONFIG.STORAGE_KEYS.HISTORY, JSON.stringify(this.drawnHistory));
+        console.log('历史记录已直接保存到localStorage，键名:', CONFIG.STORAGE_KEYS.HISTORY);
+      } catch (saveError) {
+        console.error('直接保存历史记录失败:', saveError);
+      }
+      
+      // 然后再保存完整数据
       this._saveToStorage();
       
       // 添加通知 - 发送信号表明历史记录已更新
+      console.log('正在发送历史记录更新通知');
+      
+      // 使用CustomEvent通知
       if (typeof window !== 'undefined' && window.dispatchEvent) {
-        window.dispatchEvent(new CustomEvent('history-updated'));
+        const event = new CustomEvent('history-updated');
+        window.dispatchEvent(event);
+        console.log('已发送CustomEvent: history-updated');
       }
+      
+      // 使用emitter也发送通知，确保全面覆盖
+      if (this.emitter) {
+        this.emitter.emit('history-updated');
+        console.log('已通过emitter发送通知: history-updated');
+      } else {
+        console.warn('emitter不存在，无法发送事件通知');
+      }
+      
+      console.log('历史记录添加完成');
+      return true;
+    } else {
+      console.warn('添加历史记录失败：标签数组为空或无效');
+      return false;
     }
   }
 
@@ -808,7 +1079,59 @@ class TagLibrary {
    */
   getHistory() {
     // 确保总是返回数组，即使数据为空
-    console.log('获取历史记录，当前数量:', this.drawnHistory.length);
+    console.log('获取历史记录，当前数量:', this.drawnHistory?.length || 0);
+    
+    // 如果历史记录为空或未定义，尝试从localStorage重新加载
+    if (!this.drawnHistory || this.drawnHistory.length === 0) {
+      try {
+        console.log('尝试从localStorage加载历史记录，键名:', CONFIG.STORAGE_KEYS.HISTORY);
+        const historyData = localStorage.getItem(CONFIG.STORAGE_KEYS.HISTORY);
+        
+        if (historyData) {
+          console.log('从localStorage找到历史数据，长度:', historyData.length);
+          try {
+            const parsedHistory = JSON.parse(historyData);
+            console.log('历史数据解析成功，条目数:', parsedHistory.length);
+            
+            if (Array.isArray(parsedHistory)) {
+              this.drawnHistory = parsedHistory;
+              console.log('从localStorage重新加载历史记录成功，条目数:', this.drawnHistory.length);
+            } else {
+              console.error('解析的历史记录不是数组，重置为空数组');
+              this.drawnHistory = [];
+            }
+          } catch (parseError) {
+            console.error('解析历史记录数据失败:', parseError, '原始数据:', historyData);
+            this.drawnHistory = [];
+          }
+        } else {
+          console.log('localStorage中没有找到历史记录数据');
+          this.drawnHistory = [];
+        }
+      } catch (error) {
+        console.error('尝试重新加载历史记录失败:', error);
+        // 确保drawnHistory至少是一个空数组
+        this.drawnHistory = [];
+      }
+    }
+    
+    // 最后的安全检查
+    if (!Array.isArray(this.drawnHistory)) {
+      console.error('返回前发现drawnHistory仍然不是数组，修正为空数组');
+      this.drawnHistory = [];
+    } else {
+      // 检查历史记录项的有效性
+      const validItems = this.drawnHistory.filter(item => 
+        item && typeof item === 'object' && Array.isArray(item.tags) && item.tags.length > 0
+      );
+      
+      if (validItems.length !== this.drawnHistory.length) {
+        console.warn(`过滤掉了${this.drawnHistory.length - validItems.length}条无效的历史记录`);
+        this.drawnHistory = validItems;
+        // 保存有效的历史记录
+        this._saveToStorage();
+      }
+    }
     
     // 防止可能的引用类型问题，返回一个浅拷贝
     return [...this.drawnHistory];
@@ -847,6 +1170,11 @@ class TagLibrary {
         window.dispatchEvent(new CustomEvent('history-updated'));
       }
       
+      // 使用emitter也发送通知，确保全面覆盖
+      if (this.emitter) {
+        this.emitter.emit('history-updated');
+      }
+      
       return true;
     }
     
@@ -865,6 +1193,11 @@ class TagLibrary {
       // 发送更新通知
       if (typeof window !== 'undefined' && window.dispatchEvent) {
         window.dispatchEvent(new CustomEvent('history-updated'));
+      }
+      
+      // 使用emitter也发送通知，确保全面覆盖
+      if (this.emitter) {
+        this.emitter.emit('history-updated');
       }
       
       return true;
@@ -1297,12 +1630,14 @@ class TagLibrary {
   
   /**
    * 移除标签
-   * @param {string} category - 分类
+   * @param {string} category - 分类名称
    * @param {string} content - 标签内容
-   * @param {string} libraryName - 可选，库名称，默认为当前库
+   * @param {string} libraryName - 库名称，默认为当前库
    * @returns {boolean} 是否成功移除
    */
   removeTag(category, content, libraryName = null) {
+    console.log('TagLibrary.removeTag 被调用:', { category, content, libraryName });
+    
     const libName = libraryName || this.currentLibraryName;
     const library = this.libraries[libName];
     
@@ -1330,6 +1665,8 @@ class TagLibrary {
     
     // 如果长度变化，说明成功移除了标签
     if (library[category].length < originalLength) {
+      console.log(`成功从分类 "${category}" 移除标签 "${content}"`);
+      
       this._saveToStorage();
       
       // 直接调用通知方法，确保更新传播到所有组件
@@ -1338,7 +1675,96 @@ class TagLibrary {
       return true;
     }
     
+    console.log(`未能从分类 "${category}" 移除标签 "${content}"，可能不存在该标签`);
     return false;
+  }
+  
+  /**
+   * 添加标签
+   * @param {string} category - 分类名称
+   * @param {Object} tag - 标签对象，包含content和可选的subTitles
+   * @param {string} libraryName - 库名称，默认为当前库
+   * @returns {boolean} 是否成功添加
+   */
+  addTag(category, tag, libraryName = null) {
+    console.log('TagLibrary.addTag 被调用:', { category, tag, libraryName });
+    
+    const libName = libraryName || this.currentLibraryName;
+    const library = this.libraries[libName];
+    
+    if (!library) {
+      console.error(`添加标签失败: 库 "${libName}" 不存在`);
+      return false;
+    }
+    
+    if (!library[category] || !Array.isArray(library[category])) {
+      console.error(`添加标签失败: 分类 "${category}" 不存在或不是数组`);
+      return false;
+    }
+    
+    // 确保tag是一个对象
+    let tagObject = tag;
+    if (typeof tag === 'string') {
+      tagObject = { content: tag, subTitles: [] };
+    } else if (!tag || typeof tag !== 'object') {
+      console.error(`添加标签失败: 标签必须是字符串或对象`);
+      return false;
+    }
+    
+    // 确保标签对象有content属性
+    if (!tagObject.content && tagObject.content !== '') {
+      console.error(`添加标签失败: 标签对象缺少content属性`);
+      return false;
+    }
+    
+    // 检查标签内容是否为空
+    const content = tagObject.content.trim();
+    if (content === '') {
+      console.error(`添加标签失败: 标签内容不能为空`);
+      return false;
+    }
+    
+    // 处理subTitles
+    let subTitles = [];
+    if (tagObject.subTitles) {
+      if (Array.isArray(tagObject.subTitles)) {
+        subTitles = tagObject.subTitles.filter(s => s && typeof s === 'string');
+      } else if (typeof tagObject.subTitles === 'string') {
+        // 如果传入的是字符串，按逗号分割
+        subTitles = tagObject.subTitles.split(',').map(s => s.trim()).filter(s => s);
+      }
+    }
+    
+    // 检查是否已存在相同内容的标签
+    const exists = library[category].some(existingTag => {
+      if (typeof existingTag === 'string') {
+        return existingTag === content;
+      } else {
+        const existingContent = existingTag.content || existingTag.text || '';
+        return existingContent === content;
+      }
+    });
+    
+    if (exists) {
+      console.error(`添加标签失败: 分类 "${category}" 中已存在相同内容的标签`);
+      return false;
+    }
+    
+    // 添加新标签
+    library[category].push({
+      content: content,
+      subTitles: subTitles
+    });
+    
+    console.log(`成功添加标签 "${content}" 到分类 "${category}"`);
+    
+    // 保存更改
+    this._saveToStorage();
+    
+    // 触发更新通知
+    this._notifyLibraryUpdated();
+    
+    return true;
   }
 
   /**
@@ -1348,21 +1774,28 @@ class TagLibrary {
    * @returns {boolean} 是否添加成功
    */
   addCategory(libraryName, categoryName) {
+    console.log('TagLibrary.addCategory 被调用:', { libraryName, categoryName });
+    
     if (!libraryName || !categoryName) {
+      console.error('添加分类失败: 库名称或分类名称为空');
       throw new Error('库名称和分类名称不能为空');
     }
     
     if (!this.libraries[libraryName]) {
+      console.error(`添加分类失败: 库 "${libraryName}" 不存在`);
       throw new Error(`库 "${libraryName}" 不存在`);
     }
     
     // 检查分类是否已存在
     if (this.libraries[libraryName][categoryName]) {
+      console.error(`添加分类失败: 分类 "${categoryName}" 已存在于库 "${libraryName}" 中`);
       throw new Error(`分类 "${categoryName}" 已存在于库 "${libraryName}" 中`);
     }
     
     // 添加新分类
     this.libraries[libraryName][categoryName] = [];
+    
+    console.log(`成功添加分类 "${categoryName}" 到库 "${libraryName}"`);
     
     // 保存更改
     this._saveToStorage();
@@ -1381,26 +1814,34 @@ class TagLibrary {
    * @returns {boolean} 是否重命名成功
    */
   renameCategory(libraryName, oldCategoryName, newCategoryName) {
+    console.log('TagLibrary.renameCategory 被调用:', { libraryName, oldCategoryName, newCategoryName });
+    
     // 验证参数
     if (!libraryName || !oldCategoryName || !newCategoryName) {
+      console.error('重命名分类失败: 库名称、原分类名称或新分类名称为空');
       throw new Error('库名称、原分类名称和新分类名称不能为空');
     }
     
     if (!this.libraries[libraryName]) {
+      console.error(`重命名分类失败: 库 "${libraryName}" 不存在`);
       throw new Error(`库 "${libraryName}" 不存在`);
     }
     
     if (!this.libraries[libraryName][oldCategoryName]) {
+      console.error(`重命名分类失败: 分类 "${oldCategoryName}" 不存在于库 "${libraryName}" 中`);
       throw new Error(`分类 "${oldCategoryName}" 不存在于库 "${libraryName}" 中`);
     }
     
     if (this.libraries[libraryName][newCategoryName]) {
+      console.error(`重命名分类失败: 分类 "${newCategoryName}" 已存在于库 "${libraryName}" 中`);
       throw new Error(`分类 "${newCategoryName}" 已存在于库 "${libraryName}" 中`);
     }
     
     // 重命名分类（移动数据）
     this.libraries[libraryName][newCategoryName] = this.libraries[libraryName][oldCategoryName];
     delete this.libraries[libraryName][oldCategoryName];
+    
+    console.log(`成功将分类 "${oldCategoryName}" 重命名为 "${newCategoryName}" 在库 "${libraryName}" 中`);
     
     // 保存更改
     this._saveToStorage();
@@ -1418,21 +1859,28 @@ class TagLibrary {
    * @returns {boolean} 是否删除成功
    */
   deleteCategory(libraryName, categoryName) {
+    console.log('TagLibrary.deleteCategory 被调用:', { libraryName, categoryName });
+    
     // 验证参数
     if (!libraryName || !categoryName) {
+      console.error('删除分类失败: 库名称或分类名称为空');
       throw new Error('库名称和分类名称不能为空');
     }
     
     if (!this.libraries[libraryName]) {
+      console.error(`删除分类失败: 库 "${libraryName}" 不存在`);
       throw new Error(`库 "${libraryName}" 不存在`);
     }
     
     if (!this.libraries[libraryName][categoryName]) {
+      console.error(`删除分类失败: 分类 "${categoryName}" 不存在于库 "${libraryName}" 中`);
       throw new Error(`分类 "${categoryName}" 不存在于库 "${libraryName}" 中`);
     }
     
     // 删除分类
     delete this.libraries[libraryName][categoryName];
+    
+    console.log(`成功从库 "${libraryName}" 中删除分类 "${categoryName}"`);
     
     // 保存更改
     this._saveToStorage();
@@ -1472,6 +1920,27 @@ class TagLibrary {
     
     // 触发更新通知
     this._notifyLibraryUpdated();
+  }
+
+  /**
+   * 验证 emitter 是否被设置
+   * @returns {boolean} emitter 是否被设置
+   */
+  hasEmitter() {
+    const result = !!this.emitter;
+    console.log('TagLibrary.hasEmitter 被调用, 结果:', result);
+    
+    // 如果存在 emitter，尝试发送测试消息
+    if (result) {
+      try {
+        this.emitter.emit('test', { message: 'emitter 测试消息' });
+        console.log('成功通过 emitter 发送测试消息');
+      } catch (error) {
+        console.error('通过 emitter 发送测试消息失败:', error);
+      }
+    }
+    
+    return result;
   }
 
   /**

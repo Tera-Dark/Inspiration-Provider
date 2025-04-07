@@ -102,78 +102,6 @@
         </div>
       </div>
       
-      <!-- 高级设置 -->
-      <div class="advanced-settings-wrapper">
-        <div class="advanced-header" @click="toggleAdvanced">
-          <h3>高级设置</h3>
-          <span class="toggle-icon">{{ showAdvanced ? '▼' : '▶' }}</span>
-        </div>
-        
-        <div v-show="showAdvanced" class="advanced-content">
-          <div class="advanced-item">
-            <label>排除关键词</label>
-            <input 
-              type="text" 
-              v-model="excludeKeywords" 
-              placeholder="输入关键词，用逗号分隔"
-              class="form-input"
-            />
-          </div>
-          
-          <div class="advanced-item checkbox">
-            <input type="checkbox" id="noDuplicates" v-model="noDuplicates" />
-            <label for="noDuplicates">避免重复标签</label>
-          </div>
-          
-          <div class="advanced-item checkbox">
-            <input type="checkbox" id="useWeights" v-model="useWeights" />
-            <label for="useWeights">使用权重（常用标签更易抽到）</label>
-          </div>
-
-          <div class="advanced-item checkbox">
-            <input type="checkbox" id="showAnimation" v-model="showAnimation" />
-            <label for="showAnimation">显示抽取动画</label>
-          </div>
-
-          <div class="advanced-item">
-            <label>动画效果强度</label>
-            <div class="slider-container">
-              <input 
-                type="range" 
-                min="1" 
-                max="100" 
-                v-model="animationIntensity" 
-                class="slider" 
-                :disabled="!showAnimation"
-              />
-              <span class="slider-value">{{ animationIntensity }}%</span>
-              <button 
-                v-if="showAnimation"
-                @click="testAnimation" 
-                class="test-btn" 
-                title="测试动画效果"
-              >
-                测
-              </button>
-            </div>
-          </div>
-
-          <div class="advanced-item">
-            <label>历史记录保存数量</label>
-            <div class="slider-container">
-              <input 
-                type="range" 
-                min="10" 
-                max="100" 
-                v-model="maxHistoryCount" 
-                class="slider" 
-              />
-              <span class="slider-value">{{ maxHistoryCount }}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-      
       <div class="button-group">
         <button @click="drawTags" class="primary-button" :disabled="isDrawing">
           <span v-if="isDrawing" class="button-spinner"></span>
@@ -189,7 +117,7 @@
 </template>
 
 <script>
-import { defineComponent, ref, inject, computed, onMounted, onUnmounted, watch } from 'vue';
+import { defineComponent, ref, inject, computed, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import MultiCategorySelector from '@/components/common/MultiCategorySelector.vue';
 
 export default defineComponent({
@@ -203,211 +131,32 @@ export default defineComponent({
     const tagLibrary = inject('tagLibrary');
     const tagDrawer = inject('tagDrawer');
     
-    // 用于触发重新计算的刷新器
-    const refreshTrigger = ref(0);
-    
-    // 抽签设置
+    // 基本设置
     const drawCount = ref(3);
     const selectedCategory = ref('all');
-    const selectedCategories = ref([]);
-    const useMultiCategories = ref(false);
     const selectedLibrary = ref('default');
-    const excludeKeywords = ref('');
-    const noDuplicates = ref(true);
-    const useWeights = ref(false);
-    const showAdvanced = ref(false);
-    const showAnimation = ref(false);
-    const animationIntensity = ref(60);
-    const maxHistoryCount = ref(20);
+    const useMultiCategories = ref(false);
+    const selectedCategories = ref([]);
     const ensureEachCategory = ref(false);
-    
-    // 库加载状态
-    const isLibraryLoading = ref(false);
-    // 抽取加载状态
     const isDrawing = ref(false);
+    const isGenerating = ref(false);
+    
+    // 库相关
+    const recentLibraries = ref([]);
+    const currentLibraryInfo = ref(null);
+    const isLibraryLoading = ref(false);
     
     // 计算属性
     const categories = computed(() => {
-      // 使用refreshTrigger强制更新
-      refreshTrigger.value;
-      return tagLibrary.getCategories() || [];
+      const lib = tagLibrary.getCurrentLibrary();
+      return Object.keys(lib || {});
     });
     
-    const libraries = computed(() => {
-      // 使用refreshTrigger强制更新
-      refreshTrigger.value;
-      return tagLibrary.getLibraryNames() || ['default'];
-    });
-    
-    // 获取最近使用的库
-    const recentLibraries = computed(() => {
-      refreshTrigger.value;
-      const recent = tagLibrary.getRecentLibraries() || [];
-      // 过滤掉当前选中的库
-      return recent.filter(lib => lib !== selectedLibrary.value);
-    });
-    
-    // 获取当前库的信息
-    const currentLibraryInfo = computed(() => {
-      refreshTrigger.value;
-      if (!selectedLibrary.value) return null;
-      
-      const categories = tagLibrary.getCategories(selectedLibrary.value) || [];
-      let tagCount = 0;
-      
-      // 计算总标签数
-      if (selectedLibrary.value) {
-        tagCount = tagLibrary.getTagCountByLibrary(selectedLibrary.value);
-      }
-      
-      return {
-        categoryCount: categories.length,
-        tagCount: tagCount
-      };
-    });
-    
-    // 过滤掉当前选中的库，避免重复显示
     const filteredLibraries = computed(() => {
-      return libraries.value.filter(lib => lib !== selectedLibrary.value);
+      return tagLibrary.getLibraryNames().filter(lib => lib !== selectedLibrary.value);
     });
     
-    // 刷新数据
-    const refreshData = () => {
-      refreshTrigger.value++;
-      console.log('抽签设置: 标签库数据已更新', refreshTrigger.value);
-      
-      // 检查当前选择的库是否仍然存在
-      if (selectedLibrary.value && !libraries.value.includes(selectedLibrary.value)) {
-        // 如果当前选择的库不存在了，切换到第一个可用的库
-        if (libraries.value.length > 0) {
-          selectedLibrary.value = libraries.value[0];
-          // 切换库
-          handleLibraryChange();
-        }
-      }
-    };
-    
-    // 切换单/多分类模式
-    const toggleMultiCategoryMode = () => {
-      useMultiCategories.value = !useMultiCategories.value;
-      
-      // 切换到多分类模式时，初始化选中分类
-      if (useMultiCategories.value) {
-        if (selectedCategory.value !== 'all') {
-          selectedCategories.value = [selectedCategory.value];
-        } else {
-          selectedCategories.value = [];
-        }
-      }
-    };
-    
-    // 事件处理
-    const drawTags = async () => {
-      // 设置抽取中状态
-      isDrawing.value = true;
-      
-      try {
-        // 解析排除关键词
-        const excludeList = excludeKeywords.value
-          ? excludeKeywords.value.split(',').map(kw => kw.trim())
-          : [];
-        
-        // 设置抽取选项
-        const options = {
-          count: parseInt(drawCount.value),
-          excludeKeywords: excludeList,
-          noDuplicates: noDuplicates.value,
-          useWeights: useWeights.value,
-          showAnimation: showAnimation.value,
-          animationIntensity: animationIntensity.value,
-          maxHistoryCount: maxHistoryCount.value,
-          library: selectedLibrary.value
-        };
-        
-        // 根据模式设置分类
-        if (useMultiCategories.value) {
-          // 多分类模式：检查是否有选中的分类
-          if (selectedCategories.value.length > 0) {
-            console.log('多分类模式-选中分类:', selectedCategories.value);
-            
-            // 直接设置category为选中的分类数组
-            options.category = selectedCategories.value;
-            
-            // 确保在多分类模式下，如果启用了确保平衡功能且有至少两个选中的分类，则启用平衡
-            if (ensureEachCategory.value && selectedCategories.value.length > 1) {
-              console.log('启用多分类平衡抽取');
-              options.ensureEachCategory = true;
-            } else {
-              options.ensureEachCategory = false;
-              console.log('未启用多分类平衡抽取：', ensureEachCategory.value ? '分类数量不足' : '用户未启用平衡功能');
-            }
-          } else {
-            console.log('多分类模式-未选择任何分类，默认使用all');
-            options.category = 'all';
-            options.ensureEachCategory = false;
-          }
-        } else {
-          // 单分类模式
-          console.log('单分类模式-使用分类:', selectedCategory.value);
-          options.category = selectedCategory.value;
-          options.ensureEachCategory = false; // 单分类模式下不启用平衡功能
-        }
-        
-        console.log('最终抽取选项:', options);
-        
-        // 执行抽取 (现在是异步的)
-        const result = await tagDrawer.draw(options);
-        
-        // 播放动画效果（如果启用）
-        if (showAnimation.value) {
-          playDrawAnimation();
-        }
-        
-        // 发布抽取结果事件
-        emit('draw-completed', result);
-        emitter.emit('tags-drawn', result);
-        
-        // 保存到历史记录
-        tagLibrary.addToHistory(result, options);
-        
-        emitter.emit('notification', {
-          type: 'success',
-          message: `成功抽取了 ${result.length} 个标签`
-        });
-      } catch (error) {
-        console.error('抽取失败:', error);
-        emitter.emit('notification', {
-          type: 'error',
-          message: `抽取失败: ${error.message || '未知错误'}`
-        });
-      } finally {
-        // 完成后清除抽取中状态
-        isDrawing.value = false;
-      }
-    };
-    
-    // 播放抽取动画
-    const playDrawAnimation = () => {
-      emitter.emit('play-draw-animation', animationIntensity.value);
-    };
-    
-    // 测试动画效果
-    const testAnimation = () => {
-      if (showAnimation.value) {
-        playDrawAnimation();
-      }
-    };
-    
-    // 重置表单
-    const resetForm = () => {
-      drawCount.value = 3;
-      selectedCategory.value = 'all';
-      selectedCategories.value = [];
-      excludeKeywords.value = '';
-      emit('draw-completed', []);
-    };
-    
-    // 增减数量
+    // 方法
     const increaseCount = () => {
       if (drawCount.value < 99) {
         drawCount.value++;
@@ -420,44 +169,110 @@ export default defineComponent({
       }
     };
     
-    // 切换高级设置显示
-    const toggleAdvanced = () => {
-      showAdvanced.value = !showAdvanced.value;
+    const toggleMultiCategoryMode = () => {
+      useMultiCategories.value = !useMultiCategories.value;
+      if (!useMultiCategories.value) {
+        selectedCategories.value = [];
+      }
     };
     
-    // 处理库变更
-    const handleLibraryChange = () => {
-      console.log(`切换标签库到: ${selectedLibrary.value}`);
+    const handleLibraryChange = async () => {
+      if (!selectedLibrary.value) return;
       
-      // 设置加载状态
-      isLibraryLoading.value = true;
-      
-      // 使用setTimeout让UI有时间更新加载状态
-      setTimeout(() => {
-        // 通知TagLibrary切换当前库
-        if (tagLibrary.setCurrentLibrary) {
-          tagLibrary.setCurrentLibrary(selectedLibrary.value);
-        }
+      try {
+        isLibraryLoading.value = true;
+        await tagLibrary.setCurrentLibrary(selectedLibrary.value);
         
-        // 刷新数据以更新分类列表
-        refreshData();
+        // 更新库信息
+        updateLibraryInfo();
+        
+        // 更新最近使用的库列表
+        recentLibraries.value = tagLibrary.getRecentLibraries();
         
         // 重置分类选择
         selectedCategory.value = 'all';
         selectedCategories.value = [];
         
-        // 发出通知
         emitter.emit('notification', {
-          type: 'info',
+          type: 'success',
           message: `已切换到标签库: ${selectedLibrary.value}`
         });
-        
-        // 清除加载状态
+      } catch (error) {
+        emitter.emit('notification', {
+          type: 'error',
+          message: `切换标签库失败: ${error.message}`
+        });
+      } finally {
         isLibraryLoading.value = false;
-      }, 200); // 添加小延迟，让用户感知到加载过程
+      }
     };
     
-    // 快速选择库
+    const updateLibraryInfo = () => {
+      const lib = tagLibrary.getCurrentLibrary();
+      if (lib) {
+        const categoryCount = Object.keys(lib).length;
+        let tagCount = 0;
+        for (const category in lib) {
+          if (Array.isArray(lib[category])) {
+            tagCount += lib[category].length;
+          }
+        }
+        currentLibraryInfo.value = { categoryCount, tagCount };
+      } else {
+        currentLibraryInfo.value = null;
+      }
+    };
+    
+    const drawTags = async () => {
+      if (isDrawing.value) return;
+      
+      try {
+        isGenerating.value = true;
+        
+        // 准备抽签参数
+        const options = {
+          count: drawCount.value,
+          categories: useMultiCategories.value ? selectedCategories.value : 
+                     selectedCategory.value === 'all' ? undefined : [selectedCategory.value],
+          ensureEachCategory: useMultiCategories.value && selectedCategories.value.length > 1 ? 
+                            ensureEachCategory.value : false
+        };
+        
+        // 执行抽签
+        const result = await tagDrawer.draw(options);
+        
+        // 添加到历史记录
+        tagLibrary.addToHistory(result, options);
+        
+        // 发送结果到父组件
+        emit('draw-completed', result);
+        emitter.emit('tags-drawn', result);
+        
+        // 显示成功通知
+        emitter.emit('notification', {
+          type: 'success',
+          message: `成功抽取了 ${result.length} 个标签`
+        });
+        
+      } catch (error) {
+        console.error('抽签失败:', error);
+        emitter.emit('notification', {
+          type: 'error',
+          message: `抽签失败: ${error.message}`
+        });
+      } finally {
+        isDrawing.value = false;
+      }
+    };
+    
+    const resetForm = () => {
+      drawCount.value = 3;
+      selectedCategory.value = 'all';
+      useMultiCategories.value = false;
+      selectedCategories.value = [];
+      ensureEachCategory.value = false;
+    };
+    
     const quickSelectLibrary = (libraryName) => {
       if (libraryName && libraryName !== selectedLibrary.value) {
         selectedLibrary.value = libraryName;
@@ -467,49 +282,6 @@ export default defineComponent({
     
     // 初始化
     onMounted(() => {
-      // 加载用户设置
-      const userSettings = localStorage.getItem('drawer_settings');
-      if (userSettings) {
-        try {
-          const settings = JSON.parse(userSettings);
-          
-          // 应用设置
-          if (typeof settings.defaultDrawCount === 'number') {
-            drawCount.value = settings.defaultDrawCount;
-          }
-          
-          if (typeof settings.noDuplicates === 'boolean') {
-            noDuplicates.value = settings.noDuplicates;
-          }
-          
-          if (typeof settings.useWeights === 'boolean') {
-            useWeights.value = settings.useWeights;
-          }
-          
-          if (typeof settings.showAnimation === 'boolean') {
-            showAnimation.value = settings.showAnimation;
-          }
-          
-          if (typeof settings.animationIntensity === 'number') {
-            animationIntensity.value = settings.animationIntensity;
-          }
-          
-          if (typeof settings.maxHistoryCount === 'number') {
-            maxHistoryCount.value = settings.maxHistoryCount;
-          }
-          
-          if (typeof settings.useMultiCategories === 'boolean') {
-            useMultiCategories.value = settings.useMultiCategories;
-          }
-          
-          if (typeof settings.ensureEachCategory === 'boolean') {
-            ensureEachCategory.value = settings.ensureEachCategory;
-          }
-        } catch (e) {
-          console.error('加载抽签设置失败', e);
-        }
-      }
-      
       // 加载默认库设置
       const librarySettings = localStorage.getItem('library_settings');
       let defaultLibraryName = null;
@@ -517,94 +289,55 @@ export default defineComponent({
       if (librarySettings) {
         try {
           const settings = JSON.parse(librarySettings);
-          if (settings.defaultLibrary) {
-            defaultLibraryName = settings.defaultLibrary;
-          }
+          defaultLibraryName = settings.defaultLibrary;
         } catch (e) {
-          console.error('加载默认库设置失败', e);
+          console.error('加载库设置失败', e);
         }
       }
       
-      // 设置默认库
-      // 优先级：1. 用户设置的默认库 2. 指定的特定库（如"所长常规法典库"） 3. 当前加载的库 4. 第一个可用库
-      if (defaultLibraryName && libraries.value.includes(defaultLibraryName)) {
-        selectedLibrary.value = defaultLibraryName;
-      } else if (libraries.value.includes('所长常规法典库')) {
-        selectedLibrary.value = '所长常规法典库';
-      } else {
-        selectedLibrary.value = tagLibrary.getCurrentLibraryName() || 
-                              (libraries.value.length > 0 ? libraries.value[0] : 'default');
-      }
-      
-      // 应用选择的库
-      if (selectedLibrary.value) {
+      // 设置当前库
+      const libraries = tagLibrary.getLibraryNames();
+      if (libraries.length > 0) {
+        selectedLibrary.value = defaultLibraryName && libraries.includes(defaultLibraryName) ? 
+                              defaultLibraryName : libraries[0];
         handleLibraryChange();
       }
       
-      // 监听标签库更新事件
-      emitter.on('tagLibraryUpdated', refreshData);
+      // 加载最近使用的库列表
+      recentLibraries.value = tagLibrary.getRecentLibraries();
+      
+      // 更新库信息
+      updateLibraryInfo();
     });
-    
-    // 组件卸载时移除事件监听
-    onUnmounted(() => {
-      emitter.off('tagLibraryUpdated', refreshData);
-    });
-    
-    // 保存设置
-    watch([
-      drawCount, 
-      noDuplicates, 
-      useWeights, 
-      showAnimation, 
-      animationIntensity, 
-      maxHistoryCount,
-      useMultiCategories,
-      ensureEachCategory
-    ], () => {
-      localStorage.setItem('drawer_settings', JSON.stringify({
-        drawCount: drawCount.value,
-        noDuplicates: noDuplicates.value,
-        useWeights: useWeights.value,
-        showAnimation: showAnimation.value,
-        animationIntensity: animationIntensity.value,
-        maxHistoryCount: maxHistoryCount.value,
-        useMultiCategories: useMultiCategories.value,
-        ensureEachCategory: ensureEachCategory.value
-      }));
-    }, { deep: true });
     
     return {
+      // 基本设置
       drawCount,
       selectedCategory,
-      selectedCategories,
-      useMultiCategories,
-      toggleMultiCategoryMode,
       selectedLibrary,
-      excludeKeywords,
-      noDuplicates,
-      useWeights,
-      showAdvanced,
-      showAnimation,
-      animationIntensity,
-      maxHistoryCount,
+      useMultiCategories,
+      selectedCategories,
       ensureEachCategory,
-      categories,
-      libraries,
-      filteredLibraries,
+      isDrawing,
+      isGenerating,
+      
+      // 库相关
       recentLibraries,
       currentLibraryInfo,
       isLibraryLoading,
-      isDrawing,
-      drawTags,
-      playDrawAnimation,
-      testAnimation,
-      resetForm,
+      filteredLibraries,
+      
+      // 计算属性
+      categories,
+      
+      // 方法
       increaseCount,
       decreaseCount,
-      toggleAdvanced,
+      toggleMultiCategoryMode,
       handleLibraryChange,
-      quickSelectLibrary,
-      refreshData
+      drawTags,
+      resetForm,
+      quickSelectLibrary
     };
   }
 });
@@ -627,7 +360,7 @@ export default defineComponent({
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.85rem 1.25rem;
+  padding: 1rem 1.5rem;
   border-bottom: 1px solid var(--border-color-light, rgba(0, 0, 0, 0.07));
   flex-shrink: 0;
 }
@@ -728,6 +461,7 @@ export default defineComponent({
   border-radius: var(--border-radius-small, 8px);
   overflow: hidden;
   margin-bottom: 0.5rem;
+  position: relative;
 }
 
 .advanced-header {
@@ -737,6 +471,10 @@ export default defineComponent({
   padding: 1rem;
   cursor: pointer;
   transition: background-color 0.2s;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background-color: inherit;
 }
 
 .advanced-header:hover {
@@ -761,6 +499,8 @@ export default defineComponent({
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  max-height: 400px;
+  overflow-y: auto;
 }
 
 .advanced-item {
@@ -1072,6 +812,23 @@ export default defineComponent({
     padding-top: 0.5rem;
     margin-top: 0.5rem;
   }
+  
+  .advanced-content {
+    max-height: 300px;
+  }
+}
+
+/* 根据不同高度调整 */
+@media (min-height: 800px) {
+  .advanced-content {
+    max-height: 450px;
+  }
+}
+
+@media (max-height: 600px) {
+  .advanced-content {
+    max-height: 250px;
+  }
 }
 
 /* 新增样式 */
@@ -1354,5 +1111,27 @@ export default defineComponent({
   color: var(--text-color-light, #999);
   cursor: not-allowed;
   opacity: 0.7;
+}
+
+/* 滚动条样式 */
+.advanced-content::-webkit-scrollbar,
+.form-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.advanced-content::-webkit-scrollbar-thumb,
+.form-content::-webkit-scrollbar-thumb {
+  background-color: var(--border-color-light, rgba(0, 0, 0, 0.2));
+  border-radius: 10px;
+}
+
+.advanced-content::-webkit-scrollbar-track,
+.form-content::-webkit-scrollbar-track {
+  background-color: transparent;
+}
+
+:global(.dark-mode) .advanced-content::-webkit-scrollbar-thumb,
+:global(.dark-mode) .form-content::-webkit-scrollbar-thumb {
+  background-color: var(--border-color-dark, rgba(255, 255, 255, 0.2));
 }
 </style> 

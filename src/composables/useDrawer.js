@@ -106,8 +106,11 @@ export function useDrawer() {
         ensureEachCategory: ensureEachCategory.value
       };
       
+      console.log('执行抽签，选项:', options);
+      
       // 执行抽取
       const result = tagDrawer.draw(options);
+      console.log('抽签结果:', result);
       
       // 播放动画效果（如果启用）
       if (showAnimation.value) {
@@ -119,17 +122,23 @@ export function useDrawer() {
       
       // 发布抽取结果事件
       emitter.emit('tags-drawn', result);
+      console.log('已发送tags-drawn事件');
       
       // 保存到历史记录
-      tagLibrary.addToHistory(result, options);
+      console.log('将结果保存到历史记录');
+      const saveResult = tagLibrary.addToHistory(result, options);
+      console.log('历史记录保存结果:', saveResult ? '成功' : '失败');
       
+      // 通知抽取成功
       emitter.emit('notification', {
         type: 'success',
         message: `成功抽取了 ${result.length} 个标签`
       });
+      console.log('抽签流程完成');
       
       return result;
     } catch (error) {
+      console.error('抽签失败:', error);
       emitter.emit('notification', {
         type: 'error',
         message: `抽取失败: ${error.message}`

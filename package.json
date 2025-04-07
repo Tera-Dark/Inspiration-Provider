@@ -22,7 +22,8 @@
   "dependencies": {
     "mitt": "^3.0.1",
     "naive-ui": "^2.41.0",
-    "vue": "^3.3.4"
+    "vue": "^3.3.4",
+    "vue3-virtual-scroll-list": "^0.2.1"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^4.2.3",

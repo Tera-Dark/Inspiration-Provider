@@ -12,6 +12,57 @@ class TagLoader {
   }
 
   /**
+   * 加载默认标签库
+   * @returns {Promise<Object>} 标签库数据
+   */
+  async loadDefaultTags() {
+    try {
+      const response = await fetch('/public/default.json');
+      if (!response.ok) {
+        throw new Error('加载默认标签库失败');
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('加载默认标签库失败:', error);
+      return {};
+    }
+  }
+
+  /**
+   * 加载画师标签库
+   * @returns {Promise<Object>} 标签库数据
+   */
+  async loadArtistTags() {
+    try {
+      const response = await fetch('/public/artists.json');
+      if (!response.ok) {
+        throw new Error('加载画师标签库失败');
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('加载画师标签库失败:', error);
+      return {};
+    }
+  }
+
+  /**
+   * 加载所长常规法典
+   * @returns {Promise<Object>} 标签库数据
+   */
+  async loadLawTags() {
+    try {
+      const response = await fetch('/public/所长常规法典.json');
+      if (!response.ok) {
+        throw new Error('加载所长常规法典失败');
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('加载所长常规法典失败:', error);
+      return {};
+    }
+  }
+
+  /**
    * 加载默认标签数据 (所长常规法典)
    * @returns {Promise<Object>} 默认标签数据
    */
