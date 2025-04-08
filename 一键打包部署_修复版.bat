@@ -2,13 +2,9 @@
 chcp 65001 > nul
 setlocal enabledelayedexpansion
 
-title 灵感提供机 - 自动打包部署
+title 灵感提供机 - 修复版部署
 
-REM 添加全局错误处理
-REM 将标准错误重定向到标准输出，以便捕获所有错误
-set "CMDEXIT=goto :ERROR"
-
-echo 灵感提供机 - 自动打包部署到GitHub Pages
+echo 灵感提供机 - 修复版部署到GitHub Pages
 echo ===================================
 echo.
 
@@ -126,6 +122,59 @@ if %errorlevel% neq 0 (
 )
 echo √ 项目构建完成！
 
+REM 确保JSON文件已复制
+if not exist "copy-json.js" (
+    echo 警告: 未找到copy-json.js文件，正在创建...
+    
+    (
+        echo const fs = require^('fs'^);
+        echo const path = require^('path'^);
+        echo.
+        echo const publicDir = path.resolve^(__dirname, 'public'^);
+        echo const distDir = path.resolve^(__dirname, 'dist'^);
+        echo.
+        echo if ^(!fs.existsSync^(distDir^)^) {
+        echo   console.error^('构建目录不存在，请先运行 npm run build'^);
+        echo   process.exit^(1^);
+        echo }
+        echo.
+        echo const files = fs.readdirSync^(publicDir^);
+        echo const jsonFiles = files.filter^(file =^> file.endsWith^('.json'^)^);
+        echo.
+        echo console.log^('正在复制JSON文件到构建目录...'^);
+        echo.
+        echo jsonFiles.forEach^(file =^> {
+        echo   const sourceFile = path.join^(publicDir, file^);
+        echo   const destFile1 = path.join^(distDir, file^);
+        echo   const destPublicDir = path.join^(distDir, 'public'^);
+        echo   const destFile2 = path.join^(destPublicDir, file^);
+        echo.
+        echo   try {
+        echo     const fileContent = fs.readFileSync^(sourceFile^);
+        echo     fs.writeFileSync^(destFile1, fileContent^);
+        echo     console.log^(`已复制: ${file} -^> dist/${file}`^);
+        echo.
+        echo     if ^(!fs.existsSync^(destPublicDir^)^) {
+        echo       fs.mkdirSync^(destPublicDir, { recursive: true }^);
+        echo     }
+        echo.
+        echo     fs.writeFileSync^(destFile2, fileContent^);
+        echo     console.log^(`已复制: ${file} -^> dist/public/${file}`^);
+        echo   } catch ^(error^) {
+        echo     console.error^(`复制 ${file} 时出错:`, error^);
+        echo   }
+        echo }^);
+        echo.
+        echo console.log^('JSON文件复制完成！'^);
+    ) > copy-json.js
+    
+    echo copy-json.js文件已创建
+)
+
+echo 正在手动复制JSON文件到构建目录...
+call node copy-json.js
+echo √ JSON文件复制完成
+
 REM 获取远程仓库URL
 for /f "tokens=* USEBACKQ" %%g in (`git remote get-url origin 2^>nul`) do (set "remote_url=%%g")
 if "%remote_url%"=="" (
@@ -173,14 +222,6 @@ echo ===================================
 echo.
 
 goto :END
-
-:ERROR
-echo.
-echo ===================================
-echo 执行过程中发生错误!
-echo 错误代码: %errorlevel%
-echo 请查看上方的错误信息。
-echo ===================================
 
 :END
 echo.

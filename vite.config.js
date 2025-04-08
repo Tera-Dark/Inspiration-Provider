@@ -16,6 +16,20 @@ export default defineConfig({
       '@assets': resolve(__dirname, 'src/assets')
     }
   },
+  build: {
+    assetsInlineLimit: 4096,
+    rollupOptions: {
+      external: [],
+      output: {
+        assetFileNames: (assetInfo) => {
+          if (assetInfo.name.endsWith('.json')) {
+            return 'assets/[name][extname]';
+          }
+          return 'assets/[name]-[hash][extname]';
+        }
+      }
+    }
+  },
   server: {
     port: 8080,
     open: true
