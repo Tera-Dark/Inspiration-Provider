@@ -122,66 +122,138 @@ if %errorlevel% neq 0 (
 )
 echo √ 项目构建完成！
 
-REM 确保JSON文件已复制
-if not exist "copy-json.js" (
-    echo 警告: 未找到copy-json.js文件，正在创建...
-    
-    (
-        echo const fs = require^('fs'^);
-        echo const path = require^('path'^);
-        echo.
-        echo const publicDir = path.resolve^(__dirname, 'public'^);
-        echo const distDir = path.resolve^(__dirname, 'dist'^);
-        echo.
-        echo if ^(!fs.existsSync^(distDir^)^) {
-        echo   console.error^('构建目录不存在，请先运行 npm run build'^);
-        echo   process.exit^(1^);
-        echo }
-        echo.
-        echo const files = fs.readdirSync^(publicDir^);
-        echo const jsonFiles = files.filter^(file =^> file.endsWith^('.json'^)^);
-        echo.
-        echo console.log^('正在复制JSON文件到构建目录...'^);
-        echo.
-        echo jsonFiles.forEach^(file =^> {
-        echo   const sourceFile = path.join^(publicDir, file^);
-        echo   const destFile1 = path.join^(distDir, file^);
-        echo   const destPublicDir = path.join^(distDir, 'public'^);
-        echo   const destFile2 = path.join^(destPublicDir, file^);
-        echo   const destAssetsDir = path.join^(distDir, 'assets'^);
-        echo   const destFile3 = path.join^(destAssetsDir, file^);
-        echo.
-        echo   try {
-        echo     const fileContent = fs.readFileSync^(sourceFile^);
-        echo     fs.writeFileSync^(destFile1, fileContent^);
-        echo     console.log^(`已复制: ${file} -^> dist/${file}`^);
-        echo.
-        echo     if ^(!fs.existsSync^(destPublicDir^)^) {
-        echo       fs.mkdirSync^(destPublicDir, { recursive: true }^);
-        echo     }
-        echo.
-        echo     fs.writeFileSync^(destFile2, fileContent^);
-        echo     console.log^(`已复制: ${file} -^> dist/public/${file}`^);
-        echo.
-        echo     if ^(!fs.existsSync^(destAssetsDir^)^) {
-        echo       fs.mkdirSync^(destAssetsDir, { recursive: true }^);
-        echo     }
-        echo.
-        echo     fs.writeFileSync^(destFile3, fileContent^);
-        echo     console.log^(`已复制: ${file} -^> dist/assets/${file}`^);
-        echo   } catch ^(error^) {
-        echo     console.error^(`复制 ${file} 时出错:`, error^);
-        echo   }
-        echo }^);
-        echo.
-        echo console.log^('JSON文件复制完成！'^);
-    ) > copy-json.js
-    
-    echo copy-json.js文件已创建
+REM 确保dist目录确实存在
+timeout /t 2 > nul
+if not exist "dist\" (
+    echo 错误: 构建完成后dist目录仍不存在，请检查构建配置。
+    goto :END
+)
+echo √ dist目录检查通过
+
+REM 检查public目录中的JSON文件
+echo 正在查找JSON文件...
+set "found_json=false"
+for %%F in (public\*.json) do (
+    set "found_json=true"
+    echo 找到: %%F
 )
 
-echo 正在手动复制JSON文件到构建目录...
-call node copy-json.js
+if "%found_json%"=="false" (
+    echo 警告: 在public目录下未找到任何JSON文件。
+)
+
+REM 使用两种方式复制JSON文件
+echo 正在复制JSON文件...
+
+REM 方法1: 使用Node.js脚本
+echo 方法1: 使用Node.js脚本复制...
+(
+    echo const fs = require^('fs'^);
+    echo const path = require^('path'^);
+    echo.
+    echo try {
+    echo   const publicDir = path.resolve^(__dirname, 'public'^);
+    echo   const distDir = path.resolve^(__dirname, 'dist'^);
+    echo.
+    echo   if ^(!fs.existsSync^(publicDir^)^) {
+    echo     console.error^('未找到public目录'^);
+    echo     process.exit^(1^);
+    echo   }
+    echo.
+    echo   if ^(!fs.existsSync^(distDir^)^) {
+    echo     console.error^('未找到dist目录'^);
+    echo     process.exit^(1^);
+    echo   }
+    echo.
+    echo   const files = fs.readdirSync^(publicDir^);
+    echo   const jsonFiles = files.filter^(file =^> file.endsWith^('.json'^)^);
+    echo.
+    echo   if ^(jsonFiles.length === 0^) {
+    echo     console.log^('未找到JSON文件，跳过复制过程'^);
+    echo     process.exit^(0^);
+    echo   }
+    echo.
+    echo   console.log^(`找到 ${jsonFiles.length} 个JSON文件，正在复制...`^);
+    echo.
+    echo   const directories = [
+    echo     distDir,                        // 根目录
+    echo     path.join^(distDir, 'public'^), // public目录 
+    echo     path.join^(distDir, 'assets'^)  // assets目录
+    echo   ];
+    echo.
+    echo   // 确保所有目标目录存在
+    echo   for ^(const dir of directories^) {
+    echo     if ^(!fs.existsSync^(dir^)^) {
+    echo       fs.mkdirSync^(dir, { recursive: true }^);
+    echo     }
+    echo   }
+    echo.
+    echo   for ^(const file of jsonFiles^) {
+    echo     try {
+    echo       const sourceFile = path.join^(publicDir, file^);
+    echo       const content = fs.readFileSync^(sourceFile^);
+    echo.
+    echo       for ^(const dir of directories^) {
+    echo         const destFile = path.join^(dir, file^);
+    echo         fs.writeFileSync^(destFile, content^);
+    echo         console.log^(`已复制: ${file} -^> ${path.relative^(process.cwd^(^), destFile^)}`^);
+    echo       }
+    echo     } catch ^(error^) {
+    echo       console.error^(`复制 ${file} 失败:`, error.message^);
+    echo     }
+    echo   }
+    echo.
+    echo   console.log^('Node.js脚本复制完成'^);
+    echo } catch ^(error^) {
+    echo   console.error^('执行过程中出错:'^);
+    echo   console.error^(error^);
+    echo   process.exit^(1^);
+    echo }
+) > copy-json-deploy.js
+
+call node copy-json-deploy.js
+set node_success=%errorlevel%
+
+REM 方法2: 使用批处理命令直接复制
+echo 方法2: 使用批处理命令复制...
+if not exist "dist\public\" mkdir "dist\public\"
+if not exist "dist\assets\" mkdir "dist\assets\"
+
+set "batch_success=true"
+for %%F in (public\*.json) do (
+    copy "%%F" "dist\" > nul 2>&1
+    if !errorlevel! neq 0 set "batch_success=false"
+    
+    copy "%%F" "dist\public\" > nul 2>&1
+    if !errorlevel! neq 0 set "batch_success=false"
+    
+    copy "%%F" "dist\assets\" > nul 2>&1
+    if !errorlevel! neq 0 set "batch_success=false"
+    
+    echo 已复制: %%~nxF
+)
+
+REM 检查两种复制方法的结果
+if "%node_success%"=="0" (
+    echo √ Node.js脚本复制成功
+) else (
+    echo ✗ Node.js脚本复制失败
+)
+
+if "%batch_success%"=="true" (
+    echo √ 批处理命令复制成功
+) else (
+    echo ✗ 批处理命令复制失败
+)
+
+REM 至少有一种方法成功即可继续
+if not "%node_success%"=="0" (
+    if not "%batch_success%"=="true" (
+        echo 错误: 两种复制方法均失败，无法继续部署。
+        goto :END
+    )
+)
+
 echo √ JSON文件复制完成
 
 REM 获取远程仓库URL
