@@ -17,13 +17,13 @@ export default defineConfig({
     }
   },
   build: {
-    assetsInlineLimit: 4096,
+    assetsInlineLimit: 0,
     rollupOptions: {
       external: [],
       output: {
         assetFileNames: (assetInfo) => {
           if (assetInfo.name.endsWith('.json')) {
-            return 'assets/[name][extname]';
+            return '[name][extname]';
           }
           return 'assets/[name]-[hash][extname]';
         }

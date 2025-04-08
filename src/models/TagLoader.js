@@ -22,10 +22,18 @@ class TagLoader {
     try {
       // 尝试多个可能的路径
       return await this._tryLoadJsonFile([
+        // 首先尝试assets目录
+        `${this.basePath}assets/default.json`,
+        // 然后尝试根目录
         `${this.basePath}default.json`,
+        // 再尝试public目录
         `${this.basePath}public/default.json`,
+        // 尝试不带基础路径的版本
+        '/assets/default.json',
         '/default.json',
         '/public/default.json',
+        // 尝试完整GitHub Pages路径
+        '/Inspiration-Provider/assets/default.json',
         '/Inspiration-Provider/default.json',
         '/Inspiration-Provider/public/default.json'
       ], '默认标签库');
@@ -43,10 +51,18 @@ class TagLoader {
     try {
       // 尝试多个可能的路径
       return await this._tryLoadJsonFile([
+        // 首先尝试assets目录
+        `${this.basePath}assets/artists.json`,
+        // 然后尝试根目录
         `${this.basePath}artists.json`,
+        // 再尝试public目录
         `${this.basePath}public/artists.json`,
+        // 尝试不带基础路径的版本
+        '/assets/artists.json',
         '/artists.json',
         '/public/artists.json',
+        // 尝试完整GitHub Pages路径
+        '/Inspiration-Provider/assets/artists.json',
         '/Inspiration-Provider/artists.json',
         '/Inspiration-Provider/public/artists.json'
       ], '画师标签库');
@@ -64,10 +80,18 @@ class TagLoader {
     try {
       // 尝试多个可能的路径
       return await this._tryLoadJsonFile([
+        // 首先尝试assets目录
+        `${this.basePath}assets/所长常规法典.json`,
+        // 然后尝试根目录
         `${this.basePath}所长常规法典.json`,
+        // 再尝试public目录
         `${this.basePath}public/所长常规法典.json`,
+        // 尝试不带基础路径的版本
+        '/assets/所长常规法典.json',
         '/所长常规法典.json',
         '/public/所长常规法典.json',
+        // 尝试完整GitHub Pages路径
+        '/Inspiration-Provider/assets/所长常规法典.json',
         '/Inspiration-Provider/所长常规法典.json',
         '/Inspiration-Provider/public/所长常规法典.json'
       ], '所长常规法典');

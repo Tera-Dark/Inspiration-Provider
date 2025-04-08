@@ -148,6 +148,8 @@ if not exist "copy-json.js" (
         echo   const destFile1 = path.join^(distDir, file^);
         echo   const destPublicDir = path.join^(distDir, 'public'^);
         echo   const destFile2 = path.join^(destPublicDir, file^);
+        echo   const destAssetsDir = path.join^(distDir, 'assets'^);
+        echo   const destFile3 = path.join^(destAssetsDir, file^);
         echo.
         echo   try {
         echo     const fileContent = fs.readFileSync^(sourceFile^);
@@ -160,6 +162,13 @@ if not exist "copy-json.js" (
         echo.
         echo     fs.writeFileSync^(destFile2, fileContent^);
         echo     console.log^(`已复制: ${file} -^> dist/public/${file}`^);
+        echo.
+        echo     if ^(!fs.existsSync^(destAssetsDir^)^) {
+        echo       fs.mkdirSync^(destAssetsDir, { recursive: true }^);
+        echo     }
+        echo.
+        echo     fs.writeFileSync^(destFile3, fileContent^);
+        echo     console.log^(`已复制: ${file} -^> dist/assets/${file}`^);
         echo   } catch ^(error^) {
         echo     console.error^(`复制 ${file} 时出错:`, error^);
         echo   }
