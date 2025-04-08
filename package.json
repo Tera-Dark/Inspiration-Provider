@@ -5,11 +5,11 @@
   "private": true,
   "scripts": {
     "dev": "vite",
-    "build": "vite build && node copy-json.js",
+    "build": "vite build",
     "preview": "vite preview",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d dist",
-    "copy-json": "node copy-json.js"
+    "copy-json": "node copy-json-deploy.js"
   },
   "keywords": [
     "创意",

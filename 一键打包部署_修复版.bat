@@ -43,15 +43,7 @@ if %errorlevel% neq 0 (
     set /p SAVE_CHANGES="是否保存当前更改？(Y/N): "
     if /i "!SAVE_CHANGES!"=="Y" (
         REM 获取当前日期和时间作为提交信息
-        for /f "tokens=2 delims==" %%a in ('wmic OS Get localdatetime /value') do set "dt=%%a"
-        set "YYYY=!dt:~0,4!"
-        set "MM=!dt:~4,2!"
-        set "DD=!dt:~6,2!"
-        set "HH=!dt:~8,2!"
-        set "Min=!dt:~10,2!"
-        set "Sec=!dt:~12,2!"
-        
-        set "timestamp=!YYYY!-!MM!-!DD! !HH!:!Min!:!Sec!"
+        for /f "usebackq tokens=*" %%a in (`powershell -Command "Get-Date -Format 'yyyy-MM-dd HH:mm:ss'"`) do set "timestamp=%%a"
         
         echo 正在保存当前更改...
         git add .
@@ -146,71 +138,7 @@ REM 使用两种方式复制JSON文件
 echo 正在复制JSON文件...
 
 REM 方法1: 使用Node.js脚本
-echo 方法1: 使用Node.js脚本复制...
-(
-    echo const fs = require^('fs'^);
-    echo const path = require^('path'^);
-    echo.
-    echo try {
-    echo   const publicDir = path.resolve^(__dirname, 'public'^);
-    echo   const distDir = path.resolve^(__dirname, 'dist'^);
-    echo.
-    echo   if ^(!fs.existsSync^(publicDir^)^) {
-    echo     console.error^('未找到public目录'^);
-    echo     process.exit^(1^);
-    echo   }
-    echo.
-    echo   if ^(!fs.existsSync^(distDir^)^) {
-    echo     console.error^('未找到dist目录'^);
-    echo     process.exit^(1^);
-    echo   }
-    echo.
-    echo   const files = fs.readdirSync^(publicDir^);
-    echo   const jsonFiles = files.filter^(file =^> file.endsWith^('.json'^)^);
-    echo.
-    echo   if ^(jsonFiles.length === 0^) {
-    echo     console.log^('未找到JSON文件，跳过复制过程'^);
-    echo     process.exit^(0^);
-    echo   }
-    echo.
-    echo   console.log^(`找到 ${jsonFiles.length} 个JSON文件，正在复制...`^);
-    echo.
-    echo   const directories = [
-    echo     distDir,                        // 根目录
-    echo     path.join^(distDir, 'public'^), // public目录 
-    echo     path.join^(distDir, 'assets'^)  // assets目录
-    echo   ];
-    echo.
-    echo   // 确保所有目标目录存在
-    echo   for ^(const dir of directories^) {
-    echo     if ^(!fs.existsSync^(dir^)^) {
-    echo       fs.mkdirSync^(dir, { recursive: true }^);
-    echo     }
-    echo   }
-    echo.
-    echo   for ^(const file of jsonFiles^) {
-    echo     try {
-    echo       const sourceFile = path.join^(publicDir, file^);
-    echo       const content = fs.readFileSync^(sourceFile^);
-    echo.
-    echo       for ^(const dir of directories^) {
-    echo         const destFile = path.join^(dir, file^);
-    echo         fs.writeFileSync^(destFile, content^);
-    echo         console.log^(`已复制: ${file} -^> ${path.relative^(process.cwd^(^), destFile^)}`^);
-    echo       }
-    echo     } catch ^(error^) {
-    echo       console.error^(`复制 ${file} 失败:`, error.message^);
-    echo     }
-    echo   }
-    echo.
-    echo   console.log^('Node.js脚本复制完成'^);
-    echo } catch ^(error^) {
-    echo   console.error^('执行过程中出错:'^);
-    echo   console.error^(error^);
-    echo   process.exit^(1^);
-    echo }
-) > copy-json-deploy.js
-
+echo 方法1: 使用专用JSON复制脚本...
 call node copy-json-deploy.js
 set node_success=%errorlevel%
 
