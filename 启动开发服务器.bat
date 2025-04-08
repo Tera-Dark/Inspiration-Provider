@@ -1,6 +1,9 @@
 @echo off
+:: 切换到UTF-8编码
+chcp 65001 >nul
 setlocal enabledelayedexpansion
 title 灵感提供机开发服务器
+
 
 echo 正在检测环境...
 echo.
