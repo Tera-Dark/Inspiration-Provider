@@ -236,7 +236,3 @@ goto :END
 echo.
 echo 按任意键退出...
 pause > nul
-
-REM 配置Git用户名和邮箱
-git config --global user.name "Tera-Dark"
-git config --global user.email "wjx19825323597@gmail.com" 
